@@ -1,33 +1,12 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 import os
-import sqlite3
 from encryptor import TextCryptographer
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'your-secret-key-change-this')
 
-# In-memory database for Vercel (consider external DB for production)
-DATABASE = ':memory:'
-
-def init_db():
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            encrypted_content TEXT NOT NULL,
-            salt TEXT NOT NULL,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            author TEXT DEFAULT 'Anonymous'
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-def get_db_connection():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    return conn
+# Simple in-memory storage for Vercel
+messages = []
 
 @app.route('/')
 def index():
@@ -55,9 +34,6 @@ def channel():
         flash('Please authenticate first!', 'error')
         return redirect(url_for('index'))
     
-    conn = get_db_connection()
-    messages = conn.execute('SELECT * FROM messages ORDER BY timestamp DESC LIMIT 50').fetchall()
-    conn.close()
     return render_template('channel.html', messages=messages)
 
 @app.route('/post_message', methods=['POST'])
@@ -78,13 +54,14 @@ def post_message():
         channel_password = session['channel_password']
         encrypted_content, salt = cryptographer.encrypt_text(message_content, channel_password)
         
-        conn = get_db_connection()
-        conn.execute(
-            'INSERT INTO messages (encrypted_content, salt, author) VALUES (?, ?, ?)',
-            (encrypted_content, salt, author)
-        )
-        conn.commit()
-        conn.close()
+        message = {
+            'id': len(messages) + 1,
+            'encrypted_content': encrypted_content,
+            'salt': salt,
+            'author': author,
+            'timestamp': 'Just now'
+        }
+        messages.append(message)
         flash('Message posted successfully!', 'success')
     except Exception as e:
         flash(f'Error posting message: {str(e)}', 'error')
@@ -97,9 +74,11 @@ def decrypt_message(message_id):
         flash('Please authenticate first!', 'error')
         return redirect(url_for('index'))
     
-    conn = get_db_connection()
-    message = conn.execute('SELECT * FROM messages WHERE id = ?', (message_id,)).fetchone()
-    conn.close()
+    message = None
+    for msg in messages:
+        if msg['id'] == message_id:
+            message = msg
+            break
     
     if not message:
         flash('Message not found!', 'error')
@@ -124,9 +103,6 @@ def logout():
     flash('Logged out successfully!', 'info')
     return redirect(url_for('index'))
 
-# Initialize database on startup
-init_db()
-
-# Vercel expects the app to be available
+# For local development
 if __name__ == '__main__':
     app.run(debug=True)
