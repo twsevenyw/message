@@ -1,5 +1,13 @@
 from flask import Flask, request, redirect, url_for, session
 import os
+import sys
+
+# Ensure the repository root is on the Python path so we can import encryptor.py on Vercel
+CURRENT_DIR = os.path.dirname(__file__)
+REPO_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, '..'))
+if REPO_ROOT not in sys.path:
+    sys.path.append(REPO_ROOT)
+
 from encryptor import TextCryptographer
 
 app = Flask(__name__)
