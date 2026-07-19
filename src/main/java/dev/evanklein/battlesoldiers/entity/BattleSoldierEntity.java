@@ -426,7 +426,7 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 		this.buildingBlocks = Math.max(0, input.getIntOr("BuildingBlocks", this.gearLevel.buildingBlocks()));
 		this.appleCooldown = Math.max(0, input.getIntOr("AppleCooldown", 0));
 		this.placedBlocks.clear();
-		input.listOrEmpty("PlacedBlocks", Codec.LONG).forEach(this.placedBlocks::add);
+		input.listOrEmpty("PlacedBlocks", Codec.LONG).forEach(value -> this.placedBlocks.add(value.longValue()));
 		this.updateDisplayName();
 		this.reassessWeaponGoal();
 	}
