@@ -2,7 +2,7 @@
 
 An advanced Fabric combat-practice mod for **Minecraft Java Edition 1.21.11**.
 
-Battle Soldiers adds persistent AI fighters that use tiered equipment, fight players or opposing armies, fire bows, eat golden apples, place tactical blocks, and breach obstacles.
+Battle Soldiers adds persistent, player-like AI fighters with randomized loadouts, 36-slot inventories, adaptive combat, consumables, tactical building, and obstacle breaching.
 
 ## Requirements
 
@@ -15,7 +15,7 @@ Install the mod and Fabric API in the `mods` folder. Multiplayer servers and con
 
 ## Download
 
-[Download Battle Soldiers 1.0.0](releases/battle-soldiers-1.0.0.jar?raw=1)
+[Download Battle Soldiers 1.1.0](releases/battle-soldiers-1.1.0.jar?raw=1)
 
 ## Quick start
 
@@ -44,7 +44,7 @@ This deploys 12 gear-level-3 red soldiers against 12 gear-level-5 blue soldiers.
 | `/soldiers team <training\|red\|blue> <count> <gear>` | Spawn a specific squad |
 | `/soldiers join <training\|red\|blue>` | Join a squad so its soldiers treat you as an ally |
 | `/soldiers join none` | Leave soldier squads |
-| `/soldiers status` | Show squad totals and active engagements |
+| `/soldiers status` | Show squad totals, active engagements, and shield users |
 | `/soldiers clear` | Remove all loaded soldiers and their tactical blocks |
 | `/soldiers clear <training\|red\|blue>` | Remove one loaded squad |
 
@@ -54,22 +54,26 @@ Commands require game-master permission (cheats in single-player or operator acc
 
 | Level | Equipment | Health | Supplies and capability |
 | ---: | --- | ---: | --- |
-| 1 | Wooden sword, leather armor | 20 | 1 golden apple, basic building and breaching |
-| 2 | Stone sword, chainmail, shield | 24 | Archers begin appearing; faster breaching |
-| 3 | Iron sword and armor, shield | 28 | More apples and tactical blocks |
-| 4 | Diamond sword and armor, shield | 34 | Strong builders and heavy breachers |
-| 5 | Netherite sword and armor, shield | 42 | Most supplies, fastest movement, can breach very hard blocks |
+| 1 | Wood/leather pool | 20 | Basic randomized supplies and breaching |
+| 2 | Stone/chainmail pool | 24 | Shields, occasional archers and rare potions |
+| 3 | Iron pool | 28 | Better armor coverage, supplies, potions, and arrows |
+| 4 | Diamond/iron pool | 34 | Rare totems, strong buff odds, and heavy breaching |
+| 5 | Netherite/diamond pool | 42 | Highest totem/buff odds, mobility, and hard-block breaching |
 
-Every fourth eligible soldier is an archer; level 5 deploys archers more frequently.
+Each soldier independently rolls a swordsman, axe-fighter, or archer role. Armor pieces can be missing, downgraded, or worn, and carried supplies vary even within the same gear level.
 
 ## AI behavior
 
-- Melee soldiers pursue targets and coordinate through scoreboard-backed squads.
-- Archers draw and fire real arrows with difficulty-scaled accuracy.
-- Wounded soldiers visibly hold and consume golden apples, receiving vanilla regeneration and absorption effects.
+- Every soldier owns a persistent 36-slot inventory containing its actual blocks, arrows, backup weapons, food, golden apples, shields, totems, and potions.
+- Swordsmen and axe fighters sprint into combat and use timed shield windows, facing attackers while blocking before lowering the shield to strike.
+- Archers consume finite arrows, fight at range, and swap to a backup melee weapon and shield when opponents close in.
+- Some higher-level soldiers carry and intelligently drink strength, swiftness, regeneration, fire-resistance, or healing potions. Potions are deliberately not guaranteed.
+- Wounded soldiers retreat before consuming golden apples or healing supplies.
+- Totem-equipped soldiers use vanilla Totem of Undying mechanics and automatically move a spare shield or totem into the offhand afterward.
 - Soldiers detect opponents behind nearby obstacles, approach the reachable face, show block-breaking cracks, and breach blocks according to gear capability.
-- Soldiers bridge gaps and place cobblestone cover. Their placed blocks are tracked, saved with the entity, and automatically removed when the soldier dies, is cleared, or changes dimensions.
-- Equipment, role, squad, remaining supplies, cooldowns, and placed-block records persist across saves.
+- Soldiers only place blocks for a detected gap, ranged cover, or an elevation step—not randomly. Placed cobblestone/planks are tracked and cleaned up automatically.
+- Equipment, inventory slots, role, squad, cooldowns, and placed-block records persist across saves.
+- Soldiers drop their worn equipment and remaining inventory on death.
 - The red and blue squads fight each other. Neutral players can spectate; players who join a squad become valid targets only for the opposing squad.
 - Creative and spectator players are never selected as practice targets.
 
@@ -79,7 +83,7 @@ World modification respects the Minecraft 1.21.11 `mob_griefing` game rule:
 /gamerule mob_griefing true
 ```
 
-Soldier-placed cobblestone is cleaned up automatically. Blocks deliberately breached during combat are normal block breaks and are not restored.
+Soldier-placed cobblestone and planks are cleaned up automatically. Blocks deliberately breached during combat are normal block breaks and are not restored.
 
 ## Build from source
 
@@ -90,7 +94,7 @@ Soldier-placed cobblestone is cleaned up automatically. Blocks deliberately brea
 The distributable mod is written to:
 
 ```text
-build/libs/battle-soldiers-1.0.0.jar
+build/libs/battle-soldiers-1.1.0.jar
 ```
 
 For local development:
