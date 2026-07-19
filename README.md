@@ -2,7 +2,7 @@
 
 An advanced Fabric combat-practice mod for **Minecraft Java Edition 1.21.11**.
 
-Battle Soldiers adds persistent, player-like AI fighters with randomized loadouts, 36-slot inventories, adaptive combat, consumables, tactical building, and obstacle breaching.
+Battle Soldiers adds persistent, player-like AI fighters with custom class combat logic, randomized loadouts, 36-slot inventories, adaptive weapons, consumables, tactical construction, and traps. Soldiers do not use vanilla zombie or skeleton combat goals.
 
 ## Requirements
 
@@ -15,7 +15,7 @@ Install the mod and Fabric API in the `mods` folder. Multiplayer servers and con
 
 ## Download
 
-[Download Battle Soldiers 1.1.0](releases/battle-soldiers-1.1.0.jar?raw=1)
+[Download Battle Soldiers 1.2.0](releases/battle-soldiers-1.2.0.jar?raw=1)
 
 ## Quick start
 
@@ -50,24 +50,36 @@ This deploys 12 gear-level-3 red soldiers against 12 gear-level-5 blue soldiers.
 
 Commands require game-master permission (cheats in single-player or operator access on a server). The battlefield is capped at 128 loaded soldiers.
 
+## Combat classes
+
+| Class | Health | Behavior |
+| --- | ---: | --- |
+| Vanguard | 20 | Raises a shield, advances slowly, lowers it for telegraphed sword counters, and switches to an axe against blockers |
+| Brute | 22 | Slow axe fighter with long recoveries and strong descending jump-critical attacks |
+| Ranger | 18 | Keeps distance, strafes while drawing a finite-ammo bow, switches to backup melee up close, and builds cover/towers |
+| Trapper | 20 | Tier-4/5 control class that predicts movement and places a finite supply of cobweb traps |
+
 ## Gear levels
 
-| Level | Equipment | Health | Supplies and capability |
-| ---: | --- | ---: | --- |
-| 1 | Wood/leather pool | 20 | Basic randomized supplies and breaching |
-| 2 | Stone/chainmail pool | 24 | Shields, occasional archers and rare potions |
-| 3 | Iron pool | 28 | Better armor coverage, supplies, potions, and arrows |
-| 4 | Diamond/iron pool | 34 | Rare totems, strong buff odds, and heavy breaching |
-| 5 | Netherite/diamond pool | 42 | Highest totem/buff odds, mobility, and hard-block breaching |
+| Level | Equipment | Supplies and capability |
+| ---: | --- | --- |
+| 1 | Wood/leather pool | Basic randomized supplies, all core classes except Trapper |
+| 2 | Stone/chainmail pool | Better shield timing and 5% potion chance |
+| 3 | Iron pool | More Ranger presence, arrows, blocks, and 10% potion chance |
+| 4 | Diamond/iron pool | Trappers unlock with two cobwebs; 15% potion and rare totem chance |
+| 5 | Netherite/diamond pool | Three-web Trappers, taller Ranger towers, 20% potion and low totem chance |
 
-Each soldier independently rolls a swordsman, axe-fighter, or archer role. Armor pieces can be missing, downgraded, or worn, and carried supplies vary even within the same gear level.
+Gear tiers improve equipment and tactical timing—not health. Every tier stays at its class health, and effective base movement remains roughly 0.19–0.24. Armor pieces can be missing, downgraded, or worn.
 
 ## AI behavior
 
 - Every soldier owns a persistent 36-slot inventory containing its actual blocks, arrows, backup weapons, food, golden apples, shields, totems, and potions.
-- Swordsmen and axe fighters sprint into combat and use timed shield windows, facing attackers while blocking before lowering the shield to strike.
-- Archers consume finite arrows, fight at range, and swap to a backup melee weapon and shield when opponents close in.
-- Some higher-level soldiers carry and intelligently drink strength, swiftness, regeneration, fire-resistance, or healing potions. Potions are deliberately not guaranteed.
+- A single custom state machine controls pathing, spacing, attack windups, recovery windows, shields, bows, weapon swaps, and class tactics.
+- Vanguards visibly alternate between blocking and punishable attack openings instead of attacking through raised shields.
+- Brutes equip axes and attempt telegraphed airborne critical strikes rather than running continuously into targets.
+- Rangers consume finite arrows, hold a back line, strafe, build one- to three-layer firing towers, place exposed-position cover, and draw real bows.
+- Tier-4/5 Trappers consume finite cobwebs to trap an enemy's current or predicted next position while refusing placements near allies.
+- Some soldiers carry and intelligently drink strength, swiftness, fire-resistance, or healing potions. Potion odds are capped at 20%.
 - Wounded soldiers retreat before consuming golden apples or healing supplies.
 - Totem-equipped soldiers use vanilla Totem of Undying mechanics and automatically move a spare shield or totem into the offhand afterward.
 - Soldiers detect opponents behind nearby obstacles, approach the reachable face, show block-breaking cracks, and breach blocks according to gear capability.
@@ -94,7 +106,7 @@ Soldier-placed cobblestone and planks are cleaned up automatically. Blocks delib
 The distributable mod is written to:
 
 ```text
-build/libs/battle-soldiers-1.1.0.jar
+build/libs/battle-soldiers-1.2.0.jar
 ```
 
 For local development:
