@@ -97,7 +97,9 @@ public final class SoldierCombatGoal extends Goal {
 	}
 
 	private void tickVanguard(LivingEntity target) {
-		this.soldier.equipSword();
+		if (this.attackWindup <= 0) {
+			this.soldier.equipSword();
+		}
 		if (this.shieldTicks > 0) {
 			this.tickShield(target);
 			return;
@@ -231,7 +233,10 @@ public final class SoldierCombatGoal extends Goal {
 	}
 
 	private void performMeleeAttack(LivingEntity target, CombatRole role) {
-		if (!this.soldier.isWithinMeleeAttackRange(target)) {
+		boolean criticalReach = role == CombatRole.BRUTE
+				&& this.critJump
+				&& this.soldier.distanceToSqr(target) <= 4.0;
+		if (!this.soldier.isWithinMeleeAttackRange(target) && !criticalReach) {
 			this.attackCooldown = 8;
 			return;
 		}
