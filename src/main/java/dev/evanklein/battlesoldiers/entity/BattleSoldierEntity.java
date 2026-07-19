@@ -5,6 +5,7 @@ import dev.evanklein.battlesoldiers.battle.BattleTeams;
 import dev.evanklein.battlesoldiers.battle.GearLevel;
 import dev.evanklein.battlesoldiers.battle.SoldierSquad;
 import dev.evanklein.battlesoldiers.entity.ai.BreachObstacleGoal;
+import dev.evanklein.battlesoldiers.entity.ai.ObstructionAwareTargetGoal;
 import dev.evanklein.battlesoldiers.entity.ai.TacticalBuildGoal;
 import dev.evanklein.battlesoldiers.entity.ai.UseGoldenAppleGoal;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
@@ -34,7 +35,6 @@ import net.minecraft.world.entity.ai.goal.RangedBowAttackGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.ai.goal.ZombieAttackGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
-import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.monster.RangedAttackMob;
 import net.minecraft.world.entity.monster.zombie.Zombie;
 import net.minecraft.world.entity.player.Player;
@@ -97,20 +97,16 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 		this.goalSelector.addGoal(9, new RandomLookAroundGoal(this));
 
 		this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
-		this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(
+		this.targetSelector.addGoal(2, new ObstructionAwareTargetGoal<>(
 				this,
 				Player.class,
 				5,
-				false,
-				false,
 				(target, level) -> target instanceof Player player && this.isValidPlayerTarget(player)
 		));
-		this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(
+		this.targetSelector.addGoal(3, new ObstructionAwareTargetGoal<>(
 				this,
 				BattleSoldierEntity.class,
 				5,
-				false,
-				false,
 				(target, level) -> target instanceof BattleSoldierEntity soldier
 						&& this.isValidSoldierTarget(soldier)
 		));
