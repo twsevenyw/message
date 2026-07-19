@@ -5,6 +5,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.scores.PlayerTeam;
@@ -45,10 +46,10 @@ public final class BattleTeams {
 			return;
 		}
 
-		MinecraftServer server = soldier.getServer();
-		if (server == null) {
+		if (!(soldier.level() instanceof ServerLevel level)) {
 			return;
 		}
+		MinecraftServer server = level.getServer();
 
 		ensureTeams(server);
 		Scoreboard scoreboard = server.getScoreboard();
@@ -59,9 +60,8 @@ public final class BattleTeams {
 	}
 
 	public static void removeSoldier(BattleSoldierEntity soldier) {
-		MinecraftServer server = soldier.getServer();
-		if (server != null) {
-			server.getScoreboard().removePlayerFromTeam(soldier.getScoreboardName());
+		if (soldier.level() instanceof ServerLevel level) {
+			level.getServer().getScoreboard().removePlayerFromTeam(soldier.getScoreboardName());
 		}
 	}
 
