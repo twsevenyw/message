@@ -101,7 +101,7 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 				this,
 				Player.class,
 				5,
-				true,
+				false,
 				false,
 				(target, level) -> target instanceof Player player && this.isValidPlayerTarget(player)
 		));
@@ -109,7 +109,7 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 				this,
 				BattleSoldierEntity.class,
 				5,
-				true,
+				false,
 				false,
 				(target, level) -> target instanceof BattleSoldierEntity soldier
 						&& this.isValidSoldierTarget(soldier)
