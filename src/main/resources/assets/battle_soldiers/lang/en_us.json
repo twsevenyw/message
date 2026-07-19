@@ -1,0 +1,9 @@
+{
+	"entity.battle_soldiers.soldier": "Battle Soldier",
+	"commands.battle_soldiers.spawned": "Deployed %s level-%s soldier(s).",
+	"commands.battle_soldiers.battle": "Battle started: %s red vs %s blue.",
+	"commands.battle_soldiers.cleared": "Removed %s soldier(s) and cleaned up tactical blocks.",
+	"commands.battle_soldiers.status": "%s active soldier(s): %s training, %s red, %s blue.",
+	"commands.battle_soldiers.joined": "Joined the %s squad.",
+	"commands.battle_soldiers.left": "Left all soldier squads."
+}
