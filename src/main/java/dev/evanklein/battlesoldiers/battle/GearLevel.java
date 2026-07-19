@@ -1,5 +1,6 @@
 package dev.evanklein.battlesoldiers.battle;
 
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
@@ -124,6 +125,94 @@ public enum GearLevel {
 
 	public boolean archerEligible() {
 		return this.archerEligible;
+	}
+
+	public Item axeWeapon() {
+		return switch (this) {
+			case ONE -> Items.WOODEN_AXE;
+			case TWO -> Items.STONE_AXE;
+			case THREE -> Items.IRON_AXE;
+			case FOUR -> Items.DIAMOND_AXE;
+			case FIVE -> Items.NETHERITE_AXE;
+		};
+	}
+
+	public Item backupWeapon() {
+		return switch (this) {
+			case ONE -> Items.WOODEN_SWORD;
+			case TWO -> Items.STONE_SWORD;
+			case THREE -> Items.IRON_SWORD;
+			case FOUR -> Items.IRON_SWORD;
+			case FIVE -> Items.DIAMOND_SWORD;
+		};
+	}
+
+	public Item lowerArmor(EquipmentSlot slot) {
+		return switch (this) {
+			case ONE -> armorForMaterial(slot, Items.LEATHER_HELMET, Items.LEATHER_CHESTPLATE, Items.LEATHER_LEGGINGS, Items.LEATHER_BOOTS);
+			case TWO -> armorForMaterial(slot, Items.LEATHER_HELMET, Items.LEATHER_CHESTPLATE, Items.LEATHER_LEGGINGS, Items.LEATHER_BOOTS);
+			case THREE -> armorForMaterial(slot, Items.CHAINMAIL_HELMET, Items.CHAINMAIL_CHESTPLATE, Items.CHAINMAIL_LEGGINGS, Items.CHAINMAIL_BOOTS);
+			case FOUR -> armorForMaterial(slot, Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS);
+			case FIVE -> armorForMaterial(slot, Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS);
+		};
+	}
+
+	public Item armor(EquipmentSlot slot) {
+		return armorForMaterial(slot, this.helmet, this.chestplate, this.leggings, this.boots);
+	}
+
+	public float archerChance() {
+		return switch (this) {
+			case ONE -> 0.0F;
+			case TWO -> 0.18F;
+			case THREE -> 0.24F;
+			case FOUR -> 0.28F;
+			case FIVE -> 0.34F;
+		};
+	}
+
+	public float potionChance() {
+		return switch (this) {
+			case ONE -> 0.0F;
+			case TWO -> 0.12F;
+			case THREE -> 0.28F;
+			case FOUR -> 0.46F;
+			case FIVE -> 0.64F;
+		};
+	}
+
+	public float totemChance() {
+		return switch (this) {
+			case ONE, TWO, THREE -> 0.0F;
+			case FOUR -> 0.14F;
+			case FIVE -> 0.32F;
+		};
+	}
+
+	public float shieldChance() {
+		return switch (this) {
+			case ONE -> 0.15F;
+			case TWO -> 0.65F;
+			case THREE -> 0.78F;
+			case FOUR -> 0.88F;
+			case FIVE -> 0.94F;
+		};
+	}
+
+	private static Item armorForMaterial(
+			EquipmentSlot slot,
+			Item helmet,
+			Item chestplate,
+			Item leggings,
+			Item boots
+	) {
+		return switch (slot) {
+			case HEAD -> helmet;
+			case CHEST -> chestplate;
+			case LEGS -> leggings;
+			case FEET -> boots;
+			default -> Items.AIR;
+		};
 	}
 
 	public static GearLevel byId(int id) {

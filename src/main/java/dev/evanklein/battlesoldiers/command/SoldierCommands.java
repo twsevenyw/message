@@ -201,9 +201,7 @@ public final class SoldierCommands {
 				continue;
 			}
 
-			int archerFrequency = gear == GearLevel.FIVE ? 3 : 4;
-			boolean archer = gear.archerEligible() && (index + 1) % archerFrequency == 0;
-			soldier.initializeSoldier(squad, gear, archer);
+			soldier.initializeSoldier(squad, gear);
 			soldier.setYRot(squad == SoldierSquad.RED ? -90.0F : 90.0F);
 			spawned++;
 		}
