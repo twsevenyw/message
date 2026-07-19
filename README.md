@@ -1,191 +1,101 @@
-# 🔐 Simple Text Cryptographer
+# Battle Soldiers
 
-A user-friendly cryptography software with both command-line and web-based interfaces for encrypting and decrypting text using AES encryption with password-based key derivation.
+An advanced Fabric combat-practice mod for **Minecraft Java Edition 1.21.11**.
 
-## 🌐 Web Server Version
+Battle Soldiers adds persistent AI fighters that use tiered equipment, fight players or opposing armies, fire bows, eat golden apples, place tactical blocks, and breach obstacles.
 
-**NEW!** Now includes a web server for encrypted messaging channels where multiple users can share encrypted messages!
+## Requirements
 
-## Features
+- Minecraft Java Edition **1.21.11**
+- Fabric Loader **0.19.3+**
+- Fabric API **0.141.5+1.21.11**
+- Java **21**
 
-- **AES Encryption**: Uses industry-standard AES encryption for maximum security
-- **Password Protection**: Your password is never stored - only used to derive encryption keys
-- **PBKDF2 Key Derivation**: Uses PBKDF2 with 100,000 iterations for secure key generation
-- **Easy to Use**: Simple command-line interface with clear instructions
-- **Web Interface**: Beautiful web-based encrypted messaging channel
-- **Multi-User Support**: Multiple users can share encrypted messages in password-protected channels
-- **Cross-Platform**: Works on Windows, macOS, and Linux
+Install the mod and Fabric API in the `mods` folder. Multiplayer servers and connecting players both need the mod because it registers a custom rendered entity.
 
-## Installation
+## Quick start
 
-### Quick Setup (Recommended)
+Enable commands/cheats, enter a world, then run:
 
-**For macOS/Linux:**
+```mcfunction
+/soldiers 10 3
+```
+
+This deploys 10 training soldiers with gear level 3. Training soldiers attack nearby survival-mode players and work together without friendly fire.
+
+Start an army battle:
+
+```mcfunction
+/soldiers battle 12 3 5
+```
+
+This deploys 12 gear-level-3 red soldiers against 12 gear-level-5 blue soldiers.
+
+## Commands
+
+| Command | Action |
+| --- | --- |
+| `/soldiers <count> <gear>` | Spawn 1–64 training soldiers; gear must be 1–5 |
+| `/soldiers battle <count-per-team> <red-gear> <blue-gear>` | Spawn two opposing armies |
+| `/soldiers team <training\|red\|blue> <count> <gear>` | Spawn a specific squad |
+| `/soldiers join <training\|red\|blue>` | Join a squad so its soldiers treat you as an ally |
+| `/soldiers join none` | Leave soldier squads |
+| `/soldiers status` | Show squad totals and active engagements |
+| `/soldiers clear` | Remove all loaded soldiers and their tactical blocks |
+| `/soldiers clear <training\|red\|blue>` | Remove one loaded squad |
+
+Commands require game-master permission (cheats in single-player or operator access on a server). The battlefield is capped at 128 loaded soldiers.
+
+## Gear levels
+
+| Level | Equipment | Health | Supplies and capability |
+| ---: | --- | ---: | --- |
+| 1 | Wooden sword, leather armor | 20 | 1 golden apple, basic building and breaching |
+| 2 | Stone sword, chainmail, shield | 24 | Archers begin appearing; faster breaching |
+| 3 | Iron sword and armor, shield | 28 | More apples and tactical blocks |
+| 4 | Diamond sword and armor, shield | 34 | Strong builders and heavy breachers |
+| 5 | Netherite sword and armor, shield | 42 | Most supplies, fastest movement, can breach very hard blocks |
+
+Every fourth eligible soldier is an archer; level 5 deploys archers more frequently.
+
+## AI behavior
+
+- Melee soldiers pursue targets and coordinate through scoreboard-backed squads.
+- Archers draw and fire real arrows with difficulty-scaled accuracy.
+- Wounded soldiers visibly hold and consume golden apples, receiving vanilla regeneration and absorption effects.
+- Soldiers detect opponents behind nearby obstacles, approach the reachable face, show block-breaking cracks, and breach blocks according to gear capability.
+- Soldiers bridge gaps and place cobblestone cover. Their placed blocks are tracked, saved with the entity, and automatically removed when the soldier dies, is cleared, or changes dimensions.
+- Equipment, role, squad, remaining supplies, cooldowns, and placed-block records persist across saves.
+- The red and blue squads fight each other. Neutral players can spectate; players who join a squad become valid targets only for the opposing squad.
+- Creative and spectator players are never selected as practice targets.
+
+World modification respects the Minecraft 1.21.11 `mob_griefing` game rule:
+
+```mcfunction
+/gamerule mob_griefing true
+```
+
+Soldier-placed cobblestone is cleaned up automatically. Blocks deliberately breached during combat are normal block breaks and are not restored.
+
+## Build from source
+
 ```bash
-./setup.sh
+./gradlew build
 ```
 
-**For Windows:**
-```batch
-setup.bat
+The distributable mod is written to:
+
+```text
+build/libs/battle-soldiers-1.0.0.jar
 ```
 
-### Manual Setup
+For local development:
 
-1. **Clone or download** this repository to your computer
-2. **Install Python** (version 3.7 or higher) if you haven't already
-3. **Create a virtual environment**:
-   ```bash
-   python3 -m venv venv
-   ```
-4. **Activate the virtual environment**:
-   - macOS/Linux: `source venv/bin/activate`
-   - Windows: `venv\Scripts\activate.bat`
-5. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-## Usage
-
-### 🌐 Web Server (Encrypted Messaging Channel)
-
-**Start the web server:**
-
-**macOS/Linux:**
 ```bash
-./start_server.sh
+./gradlew runClient
+./gradlew runServer
 ```
-
-**Windows:**
-```batch
-start_server.bat
-```
-
-**Then open your browser and go to:** `http://localhost:5000`
-
-**Demo password:** `securechannel123`
-
-#### How the Web Interface Works:
-1. **Access Channel**: Enter the channel password to access the encrypted messaging area
-2. **Post Messages**: Write messages that get automatically encrypted with AES-256
-3. **View Messages**: See all encrypted messages in the channel
-4. **Decrypt Messages**: Click "Decrypt Message" to view the decrypted content
-5. **Share Securely**: Anyone with the password can decrypt and read messages
-
-#### Web Server Features:
-- **Real-time Messaging**: Post and view encrypted messages instantly
-- **Password-Protected Channels**: Only users with the correct password can access messages
-- **Message History**: View up to 50 recent encrypted messages
-- **Beautiful Interface**: Modern, responsive web design
-- **Secure Storage**: All messages stored encrypted in SQLite database
-- **Session Management**: Secure login/logout functionality
-
-### 💻 Command Line Interface
-
-**After setup (with virtual environment activated):**
-```bash
-python encryptor.py
-```
-
-**If you need to activate the virtual environment first:**
-- macOS/Linux: `source venv/bin/activate`
-- Windows: `venv\Scripts\activate.bat`
-
-### How to Use
-
-1. **Start the program** by running `python encryptor.py`
-2. **Choose an option**:
-   - `1` - Encrypt text
-   - `2` - Decrypt text  
-   - `3` - Exit
-
-#### Encrypting Text
-
-1. Select option `1`
-2. Enter the text you want to encrypt
-3. Enter a strong password (it won't be visible as you type)
-4. **Save both outputs**:
-   - The encrypted text
-   - The salt (needed for decryption)
-
-#### Decrypting Text
-
-1. Select option `2`
-2. Enter the encrypted text
-3. Enter the salt (base64 encoded)
-4. Enter the password used for encryption
-5. Your original text will be displayed
-
-## Security Features
-
-- **AES-256 Encryption**: Military-grade encryption standard
-- **Random Salt**: Each encryption uses a unique random salt
-- **PBKDF2**: Password-based key derivation with 100,000 iterations
-- **No Password Storage**: Your password is never saved anywhere
-- **Secure Random Generation**: Uses cryptographically secure random number generation
-
-## Example Usage
-
-```
-🔐 SIMPLE TEXT CRYPTOGRAPHER 🔐
-==================================================
-1. Encrypt text
-2. Decrypt text
-3. Exit
-
-Choose an option (1-3): 1
-
-Enter the text you want to encrypt:
-> This is my secret message!
-
-Enter password: 
-[password is hidden]
-
-==================================================
-✅ ENCRYPTION SUCCESSFUL!
-==================================================
-Encrypted text: gAAAAABh...
-Salt (save this!): b'abc123...'
-
-⚠️  IMPORTANT: Save both the encrypted text and salt!
-   You'll need both to decrypt your text later.
-```
-
-## Important Security Notes
-
-- **Keep your password safe**: If you forget it, your encrypted text cannot be recovered
-- **Save the salt**: The salt is required for decryption - store it securely
-- **Use strong passwords**: Longer passwords with mixed characters are more secure
-- **Don't share encrypted text**: Anyone with the password and salt can decrypt your text
-
-## Troubleshooting
-
-### Common Issues
-
-1. **"Decryption failed" error**: 
-   - Check that you entered the correct password
-   - Verify the salt is exactly as provided during encryption
-   - Ensure the encrypted text is complete and unmodified
-
-2. **"Password cannot be empty" error**:
-   - Make sure to enter a password when prompted
-
-3. **Import errors**:
-   - Run `pip install -r requirements.txt` to install dependencies
-
-## Technical Details
-
-- **Encryption Algorithm**: AES-256 in CBC mode
-- **Key Derivation**: PBKDF2-HMAC-SHA256 with 100,000 iterations
-- **Salt Size**: 16 bytes (128 bits)
-- **Key Size**: 32 bytes (256 bits)
-- **Encoding**: Base64 URL-safe encoding for text output
 
 ## License
 
-This software is provided as-is for educational and personal use. Use responsibly and keep your passwords secure!
-
----
-
-**Happy encrypting! 🔐**
+MIT
