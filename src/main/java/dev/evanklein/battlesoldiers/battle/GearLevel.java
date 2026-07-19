@@ -7,22 +7,22 @@ public enum GearLevel {
 	ONE(
 			1, Items.WOODEN_SWORD,
 			Items.LEATHER_HELMET, Items.LEATHER_CHESTPLATE, Items.LEATHER_LEGGINGS, Items.LEATHER_BOOTS,
-			20.0, 0.27, 1, 6, 1.0F, 0.75F, false
+			20.0, 0.27, 1, 6, 2.0F, 0.75F, false
 	),
 	TWO(
 			2, Items.STONE_SWORD,
 			Items.CHAINMAIL_HELMET, Items.CHAINMAIL_CHESTPLATE, Items.CHAINMAIL_LEGGINGS, Items.CHAINMAIL_BOOTS,
-			24.0, 0.29, 1, 10, 2.5F, 1.0F, true
+			24.0, 0.29, 1, 10, 4.0F, 1.0F, true
 	),
 	THREE(
 			3, Items.IRON_SWORD,
 			Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS,
-			28.0, 0.30, 2, 14, 5.0F, 1.25F, true
+			28.0, 0.30, 2, 14, 8.0F, 1.25F, true
 	),
 	FOUR(
 			4, Items.DIAMOND_SWORD,
 			Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS,
-			34.0, 0.32, 3, 20, 12.0F, 1.55F, true
+			34.0, 0.32, 3, 20, 25.0F, 1.55F, true
 	),
 	FIVE(
 			5, Items.NETHERITE_SWORD,

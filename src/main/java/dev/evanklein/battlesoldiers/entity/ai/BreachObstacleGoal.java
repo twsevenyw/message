@@ -2,6 +2,7 @@ package dev.evanklein.battlesoldiers.entity.ai;
 
 import dev.evanklein.battlesoldiers.entity.BattleSoldierEntity;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
@@ -45,8 +46,8 @@ public final class BreachObstacleGoal extends Goal {
 
 		BlockHitResult hit = level.clip(new ClipContext(
 				this.soldier.getEyePosition(),
-				target.getEyePosition(),
-				ClipContext.Block.OUTLINE,
+				new Vec3(target.getX(), this.soldier.getEyeY(), target.getZ()),
+				ClipContext.Block.COLLIDER,
 				ClipContext.Fluid.NONE,
 				this.soldier
 		));
@@ -83,8 +84,10 @@ public final class BreachObstacleGoal extends Goal {
 
 		Vec3 center = Vec3.atCenterOf(this.obstacle);
 		this.soldier.getLookControl().setLookAt(center.x, center.y, center.z, 30.0F, 30.0F);
-		if (this.soldier.distanceToSqr(center) > 7.0) {
-			this.soldier.getNavigation().moveTo(center.x, center.y, center.z, 1.15);
+		Direction approachDirection = this.getApproachDirection();
+		Vec3 approach = Vec3.atBottomCenterOf(this.obstacle.relative(approachDirection));
+		if (this.soldier.distanceToSqr(center) > 18.0) {
+			this.soldier.getNavigation().moveTo(approach.x, approach.y, approach.z, 1.15);
 			return;
 		}
 
@@ -119,5 +122,14 @@ public final class BreachObstacleGoal extends Goal {
 	@Override
 	public boolean requiresUpdateEveryTick() {
 		return true;
+	}
+
+	private Direction getApproachDirection() {
+		int deltaX = this.soldier.getBlockX() - this.obstacle.getX();
+		int deltaZ = this.soldier.getBlockZ() - this.obstacle.getZ();
+		if (Math.abs(deltaX) >= Math.abs(deltaZ)) {
+			return deltaX >= 0 ? Direction.EAST : Direction.WEST;
+		}
+		return deltaZ >= 0 ? Direction.SOUTH : Direction.NORTH;
 	}
 }

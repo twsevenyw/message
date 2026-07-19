@@ -315,6 +315,7 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 		if (!(this.level() instanceof ServerLevel level)
 				|| !this.canBuild()
 				|| !level.mayInteract(this, pos)
+				|| !level.getWorldBorder().isWithinBounds(pos)
 				|| !level.getBlockState(pos).isAir()) {
 			return false;
 		}
@@ -354,7 +355,8 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 	public boolean canBreakBlock(BlockPos pos) {
 		if (!(this.level() instanceof ServerLevel level)
 				|| !level.getGameRules().get(GameRules.MOB_GRIEFING)
-				|| !level.mayInteract(this, pos)) {
+				|| !level.mayInteract(this, pos)
+				|| !level.getWorldBorder().isWithinBounds(pos)) {
 			return false;
 		}
 
