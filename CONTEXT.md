@@ -18,6 +18,7 @@
 | `src/main/java/dev/evanklein/battlesoldiers/command/SoldierCommands.java` | `/soldiers` command tree, spawning, battles, teams, limits, status, and cleanup |
 | `src/main/java/dev/evanklein/battlesoldiers/battle/` | Gear tiers and scoreboard-backed squad management |
 | `src/client/java/dev/evanklein/battlesoldiers/client/BattleSoldiersClient.java` | Vanilla zombie renderer registration for the custom soldier type |
+| `releases/battle-soldiers-1.0.0.jar` | Prebuilt GitHub-hosted release artifact |
 
 ## Current State
 - Complete implementation is on `cursor/battle-soldiers-mod-1918`; draft PR #1 targets `main`.
@@ -25,6 +26,7 @@
 - Soldiers include melee/archer roles, five equipment tiers, real arrow and golden-apple use, persistent supplies, tactical placement, obstacle breaching, squad targeting, friendly-fire control, and automatic placed-block cleanup.
 - `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-1.0.0.jar`.
 - A downloadable copy is staged at `/opt/cursor/artifacts/battle-soldiers-1.0.0.jar` (SHA-256 `344011d03587c796d13c037b1112eae672c0d950bcb42c1ff0d7107b635e43e1`).
+- The same verified JAR is committed at `releases/battle-soldiers-1.0.0.jar` for direct GitHub downloads.
 - Dedicated-server runtime checks passed for spawning, persistence, battles and kills, golden-apple effects, tactical placement/cleanup, and breaching a full-height stone wall.
 - The repository's pre-existing Python encryption/web-app files remain outside the Gradle source sets and are unchanged.
 
@@ -36,6 +38,7 @@
 | 2026-07-19 | Use training, red, and blue scoreboard squads. | Supports player practice, spectated army battles, team colors, and vanilla friendly-fire semantics. |
 | 2026-07-19 | Gate building/breaching on `mob_griefing`; remove only tracked cobblestone automatically. | Allows real block interaction while making soldier-created terrain reversible and preserving intentional breach consequences. |
 | 2026-07-19 | Use obstruction-aware target conditions that ignore acquisition-time line of sight. | Vanilla target retention and acquisition use separate visibility checks; disabling both is required for reliable breaching. |
+| 2026-07-19 | Commit the 38 KB release JAR under `releases/`. | The user requested a durable direct GitHub download rather than an ephemeral Cursor artifact link. |
 
 ## Agent Activity Log
 | Date | Agent | What Changed |
@@ -43,3 +46,4 @@
 | 2026-07-19 | GPT-5.6 Sol | Created shared context for the initial Fabric mod request. |
 | 2026-07-19 | GPT-5.6 Sol | Built, documented, runtime-tested, and packaged the complete Fabric 1.21.11 Battle Soldiers mod; opened draft PR #1. |
 | 2026-07-19 | GPT-5.6 Sol | Staged the compiled JAR as a downloadable Cursor artifact and recorded its checksum. |
+| 2026-07-19 | GPT-5.6 Sol | Added the verified prebuilt JAR to the GitHub branch and linked it from the README. |

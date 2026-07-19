@@ -13,6 +13,10 @@ Battle Soldiers adds persistent AI fighters that use tiered equipment, fight pla
 
 Install the mod and Fabric API in the `mods` folder. Multiplayer servers and connecting players both need the mod because it registers a custom rendered entity.
 
+## Download
+
+[Download Battle Soldiers 1.0.0](releases/battle-soldiers-1.0.0.jar?raw=1)
+
 ## Quick start
 
 Enable commands/cheats, enter a world, then run:
