@@ -24,6 +24,7 @@
 - `/soldiers <count> <gear 1-5>` and advanced battle/team/join/clear/status subcommands are implemented.
 - Soldiers include melee/archer roles, five equipment tiers, real arrow and golden-apple use, persistent supplies, tactical placement, obstacle breaching, squad targeting, friendly-fire control, and automatic placed-block cleanup.
 - `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-1.0.0.jar`.
+- A downloadable copy is staged at `/opt/cursor/artifacts/battle-soldiers-1.0.0.jar` (SHA-256 `344011d03587c796d13c037b1112eae672c0d950bcb42c1ff0d7107b635e43e1`).
 - Dedicated-server runtime checks passed for spawning, persistence, battles and kills, golden-apple effects, tactical placement/cleanup, and breaching a full-height stone wall.
 - The repository's pre-existing Python encryption/web-app files remain outside the Gradle source sets and are unchanged.
 
@@ -41,3 +42,4 @@
 | --- | --- | --- |
 | 2026-07-19 | GPT-5.6 Sol | Created shared context for the initial Fabric mod request. |
 | 2026-07-19 | GPT-5.6 Sol | Built, documented, runtime-tested, and packaged the complete Fabric 1.21.11 Battle Soldiers mod; opened draft PR #1. |
+| 2026-07-19 | GPT-5.6 Sol | Staged the compiled JAR as a downloadable Cursor artifact and recorded its checksum. |
