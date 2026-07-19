@@ -243,11 +243,15 @@ public final class SoldierCommands {
 		int training = 0;
 		int red = 0;
 		int blue = 0;
+		int engaged = 0;
 		for (BattleSoldierEntity soldier : getSoldiers(context.getSource().getServer())) {
 			switch (soldier.getSquad()) {
 				case TRAINING -> training++;
 				case RED -> red++;
 				case BLUE -> blue++;
+			}
+			if (soldier.getTarget() != null) {
+				engaged++;
 			}
 		}
 
@@ -255,13 +259,15 @@ public final class SoldierCommands {
 		int trainingResult = training;
 		int redResult = red;
 		int blueResult = blue;
+		int engagedResult = engaged;
 		context.getSource().sendSuccess(
 				() -> Component.translatable(
 						"commands.battle_soldiers.status",
 						total,
 						trainingResult,
 						redResult,
-						blueResult
+						blueResult,
+						engagedResult
 				),
 				false
 		);
