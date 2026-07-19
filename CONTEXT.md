@@ -18,16 +18,17 @@
 | `src/main/java/dev/evanklein/battlesoldiers/command/SoldierCommands.java` | `/soldiers` command tree, spawning, battles, teams, limits, status, and cleanup |
 | `src/main/java/dev/evanklein/battlesoldiers/battle/` | Gear tiers and scoreboard-backed squad management |
 | `src/client/java/dev/evanklein/battlesoldiers/client/BattleSoldiersClient.java` | Vanilla zombie renderer registration for the custom soldier type |
-| `releases/battle-soldiers-1.0.0.jar` | Prebuilt GitHub-hosted release artifact |
+| `releases/battle-soldiers-1.0.0.jar` | Previous prebuilt GitHub-hosted release |
+| `releases/battle-soldiers-1.1.0.jar` | Current prebuilt GitHub-hosted release |
 
 ## Current State
 - Complete implementation is on `cursor/battle-soldiers-mod-1918`; draft PR #1 targets `main`.
 - `/soldiers <count> <gear 1-5>` and advanced battle/team/join/clear/status subcommands are implemented.
-- Soldiers include melee/archer roles, five equipment tiers, real arrow and golden-apple use, persistent supplies, tactical placement, obstacle breaching, squad targeting, friendly-fire control, and automatic placed-block cleanup.
-- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-1.0.0.jar`.
+- Version 1.1.0 soldiers have randomized swordsman/axe-fighter/archer roles, 36-slot persistent inventories, varied armor/durability/supplies, finite arrows, active shields, totems, occasional potions, adaptive weapon switching, purposeful building, and full death drops.
+- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-1.1.0.jar`.
 - A downloadable copy is staged at `/opt/cursor/artifacts/battle-soldiers-1.0.0.jar` (SHA-256 `344011d03587c796d13c037b1112eae672c0d950bcb42c1ff0d7107b635e43e1`).
-- The same verified JAR is committed at `releases/battle-soldiers-1.0.0.jar` for direct GitHub downloads.
-- Dedicated-server runtime checks passed for spawning, persistence, battles and kills, golden-apple effects, tactical placement/cleanup, and breaching a full-height stone wall.
+- Version 1.1.0 is committed at `releases/battle-soldiers-1.1.0.jar` with SHA-256 `627ebf2259d9be25a4a844b36646a9a43b1997065cb2b4b4ed1b154a1c80f6ab`.
+- Dedicated-server runtime checks passed for randomized inventories/equipment, restart persistence, mixed-role battles, active shield blocking, totem activation, potion buffs, consumables, and inventory/equipment drops.
 - The repository's pre-existing Python encryption/web-app files remain outside the Gradle source sets and are unchanged.
 
 ## Decisions Log
@@ -39,6 +40,9 @@
 | 2026-07-19 | Gate building/breaching on `mob_griefing`; remove only tracked cobblestone automatically. | Allows real block interaction while making soldier-created terrain reversible and preserving intentional breach consequences. |
 | 2026-07-19 | Use obstruction-aware target conditions that ignore acquisition-time line of sight. | Vanilla target retention and acquisition use separate visibility checks; disabling both is required for reliable breaching. |
 | 2026-07-19 | Commit the 38 KB release JAR under `releases/`. | The user requested a durable direct GitHub download rather than an ephemeral Cursor artifact link. |
+| 2026-07-19 | Replace fixed kits/counters with persistent 36-slot inventories and randomized combat roles. | Fixed armored-zombie behavior was repetitive and did not meet the player-like opponent goal. |
+| 2026-07-19 | Restrict placement to bridge, ranged-cover, and elevation needs. | Unconditional/random block placement made fights noisy instead of tactical. |
+| 2026-07-19 | Guarantee worn-equipment drops and drop all carried inventory on normal death. | Player-like combat should produce visible, useful loot regardless of whether another soldier or a player lands the kill. |
 
 ## Agent Activity Log
 | Date | Agent | What Changed |
@@ -47,3 +51,4 @@
 | 2026-07-19 | GPT-5.6 Sol | Built, documented, runtime-tested, and packaged the complete Fabric 1.21.11 Battle Soldiers mod; opened draft PR #1. |
 | 2026-07-19 | GPT-5.6 Sol | Staged the compiled JAR as a downloadable Cursor artifact and recorded its checksum. |
 | 2026-07-19 | GPT-5.6 Sol | Added the verified prebuilt JAR to the GitHub branch and linked it from the README. |
+| 2026-07-19 | GPT-5.6 Sol | Shipped the 1.1.0 player-like AI overhaul with randomized inventories, active offhand use, purposeful tactics, death drops, runtime validation, and a rebuilt GitHub artifact. |
