@@ -75,6 +75,7 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 
 	public BattleSoldierEntity(EntityType<? extends BattleSoldierEntity> entityType, Level level) {
 		super(entityType, level);
+		this.reassessWeaponGoal();
 	}
 
 	public static AttributeSupplier.Builder createSoldierAttributes() {
@@ -113,8 +114,6 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 				(target, level) -> target instanceof BattleSoldierEntity soldier
 						&& this.isValidSoldierTarget(soldier)
 		));
-
-		this.reassessWeaponGoal();
 	}
 
 	public void initializeSoldier(SoldierSquad squad, GearLevel gearLevel, boolean archer) {
