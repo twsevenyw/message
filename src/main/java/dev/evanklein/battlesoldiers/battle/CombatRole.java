@@ -3,9 +3,10 @@ package dev.evanklein.battlesoldiers.battle;
 import java.util.Locale;
 
 public enum CombatRole {
-	SWORDSMAN("swordsman", "Swordsman"),
-	AXE_FIGHTER("axe_fighter", "Axe Fighter"),
-	ARCHER("archer", "Archer");
+	VANGUARD("vanguard", "Vanguard"),
+	BRUTE("brute", "Brute"),
+	RANGER("ranger", "Ranger"),
+	TRAPPER("trapper", "Trapper");
 
 	private final String id;
 	private final String displayName;
@@ -24,18 +25,27 @@ public enum CombatRole {
 	}
 
 	public boolean isArcher() {
-		return this == ARCHER;
+		return this == RANGER;
 	}
 
 	public static CombatRole byId(String id, boolean legacyArcher) {
 		if (id != null) {
 			String normalized = id.toLowerCase(Locale.ROOT);
+			if ("swordsman".equals(normalized)) {
+				return VANGUARD;
+			}
+			if ("axe_fighter".equals(normalized)) {
+				return BRUTE;
+			}
+			if ("archer".equals(normalized)) {
+				return RANGER;
+			}
 			for (CombatRole role : values()) {
 				if (role.id.equals(normalized)) {
 					return role;
 				}
 			}
 		}
-		return legacyArcher ? ARCHER : SWORDSMAN;
+		return legacyArcher ? RANGER : VANGUARD;
 	}
 }

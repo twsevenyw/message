@@ -7,8 +7,10 @@ import dev.evanklein.battlesoldiers.battle.GearLevel;
 import dev.evanklein.battlesoldiers.battle.SoldierSquad;
 import dev.evanklein.battlesoldiers.entity.ai.BreachObstacleGoal;
 import dev.evanklein.battlesoldiers.entity.ai.ObstructionAwareTargetGoal;
-import dev.evanklein.battlesoldiers.entity.ai.SoldierMeleeAttackGoal;
+import dev.evanklein.battlesoldiers.entity.ai.RangerElevationGoal;
+import dev.evanklein.battlesoldiers.entity.ai.SoldierCombatGoal;
 import dev.evanklein.battlesoldiers.entity.ai.TacticalBuildGoal;
+import dev.evanklein.battlesoldiers.entity.ai.TrapperWebGoal;
 import dev.evanklein.battlesoldiers.entity.ai.UseCombatConsumableGoal;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
@@ -37,11 +39,10 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
-import net.minecraft.world.entity.ai.goal.RangedBowAttackGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
+import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.monster.RangedAttackMob;
-import net.minecraft.world.entity.monster.zombie.Zombie;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
@@ -69,37 +70,35 @@ import org.jetbrains.annotations.Nullable;
 import java.util.EnumSet;
 import java.util.function.Predicate;
 
-public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
+public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	private static final String INVENTORY_TAG = "SoldierInventory";
 	private static final int NO_SLOT = -1;
 
-	private final RangedBowAttackGoal<BattleSoldierEntity> bowGoal =
-			new RangedBowAttackGoal<>(this, 1.08, 22, 20.0F);
-	private final SoldierMeleeAttackGoal meleeGoal = new SoldierMeleeAttackGoal(this);
 	private final SimpleContainer soldierInventory = new SimpleContainer(Inventory.INVENTORY_SIZE);
 	private final LongSet placedBlocks = new LongOpenHashSet();
 
 	private SoldierSquad squad = SoldierSquad.TRAINING;
 	private GearLevel gearLevel = GearLevel.ONE;
-	private CombatRole combatRole = CombatRole.SWORDSMAN;
+	private CombatRole combatRole = CombatRole.VANGUARD;
 	private boolean initialized;
+	private boolean criticalAttackPending;
 	private int consumableCooldown;
 	private int preparedConsumableSlot = NO_SLOT;
-	private int weaponSwitchCooldown;
+	private int rangerTowerCooldown;
+	private int webTrapCooldown;
 	private ItemStack activeConsumable = ItemStack.EMPTY;
 	private ItemStack savedOffhand = ItemStack.EMPTY;
 
 	public BattleSoldierEntity(EntityType<? extends BattleSoldierEntity> entityType, Level level) {
 		super(entityType, level);
-		this.reassessWeaponGoal();
 	}
 
 	public static AttributeSupplier.Builder createSoldierAttributes() {
-		return Zombie.createAttributes()
-				.add(Attributes.MAX_HEALTH, 24.0)
-				.add(Attributes.MOVEMENT_SPEED, 0.30)
+		return Monster.createMonsterAttributes()
+				.add(Attributes.MAX_HEALTH, 20.0)
+				.add(Attributes.MOVEMENT_SPEED, 0.22)
 				.add(Attributes.ATTACK_DAMAGE, 3.0)
-				.add(Attributes.FOLLOW_RANGE, 48.0);
+				.add(Attributes.FOLLOW_RANGE, 36.0);
 	}
 
 	@Override
@@ -107,7 +106,10 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 		this.goalSelector.addGoal(0, new FloatGoal(this));
 		this.goalSelector.addGoal(1, new UseCombatConsumableGoal(this));
 		this.goalSelector.addGoal(2, new BreachObstacleGoal(this));
+		this.goalSelector.addGoal(3, new RangerElevationGoal(this));
+		this.goalSelector.addGoal(3, new TrapperWebGoal(this));
 		this.goalSelector.addGoal(3, new TacticalBuildGoal(this));
+		this.goalSelector.addGoal(4, new SoldierCombatGoal(this));
 		this.goalSelector.addGoal(7, new WaterAvoidingRandomStrollGoal(this, 0.9));
 		this.goalSelector.addGoal(8, new LookAtPlayerGoal(this, LivingEntity.class, 10.0F));
 		this.goalSelector.addGoal(9, new RandomLookAroundGoal(this));
@@ -140,8 +142,8 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 	public void initializeSoldier(SoldierSquad squad, GearLevel gearLevel, boolean archer) {
 		this.squad = squad;
 		this.gearLevel = gearLevel;
-		this.combatRole = archer && gearLevel.archerEligible()
-				? CombatRole.ARCHER
+		this.combatRole = archer
+				? CombatRole.RANGER
 				: this.chooseMeleeRole();
 		this.initialized = true;
 		this.generateRandomLoadout();
@@ -149,14 +151,32 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 	}
 
 	private CombatRole chooseCombatRole() {
-		if (this.gearLevel.archerEligible() && this.getRandom().nextFloat() < this.gearLevel.archerChance()) {
-			return CombatRole.ARCHER;
-		}
-		return this.chooseMeleeRole();
+		float roll = this.getRandom().nextFloat();
+		return switch (this.gearLevel) {
+			case ONE -> roll < 0.55F
+					? CombatRole.VANGUARD
+					: roll < 0.85F ? CombatRole.BRUTE : CombatRole.RANGER;
+			case TWO -> roll < 0.50F
+					? CombatRole.VANGUARD
+					: roll < 0.78F ? CombatRole.BRUTE : CombatRole.RANGER;
+			case THREE -> roll < 0.45F
+					? CombatRole.VANGUARD
+					: roll < 0.70F ? CombatRole.BRUTE : CombatRole.RANGER;
+			case FOUR -> roll < 0.38F
+					? CombatRole.VANGUARD
+					: roll < 0.63F
+							? CombatRole.BRUTE
+							: roll < 0.86F ? CombatRole.RANGER : CombatRole.TRAPPER;
+			case FIVE -> roll < 0.35F
+					? CombatRole.VANGUARD
+					: roll < 0.60F
+							? CombatRole.BRUTE
+							: roll < 0.85F ? CombatRole.RANGER : CombatRole.TRAPPER;
+		};
 	}
 
 	private CombatRole chooseMeleeRole() {
-		return this.getRandom().nextFloat() < 0.34F ? CombatRole.AXE_FIGHTER : CombatRole.SWORDSMAN;
+		return this.getRandom().nextFloat() < 0.36F ? CombatRole.BRUTE : CombatRole.VANGUARD;
 	}
 
 	private void generateRandomLoadout() {
@@ -170,49 +190,53 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 
 		if (this.isArcher()) {
 			this.addToInventory(this.randomizedStack(this.gearLevel.backupWeapon()));
-			this.addToInventory(new ItemStack(Items.ARROW, 18 + this.getRandom().nextInt(25)));
+			this.addToInventory(new ItemStack(Items.ARROW, 14 + this.getRandom().nextInt(15)));
 			if (this.gearLevel.id() >= 4 && this.getRandom().nextFloat() < 0.22F) {
-				this.addToInventory(new ItemStack(Items.SPECTRAL_ARROW, 4 + this.getRandom().nextInt(9)));
+				this.addToInventory(new ItemStack(Items.SPECTRAL_ARROW, 3 + this.getRandom().nextInt(5)));
 			}
 		}
+		if (this.combatRole == CombatRole.TRAPPER) {
+			int webs = this.gearLevel.id() >= 5 ? 3 : 2;
+			this.addToInventory(new ItemStack(Items.COBWEB, webs));
+			this.addToInventory(this.randomizedStack(this.gearLevel.axeWeapon()));
+		}
+		if (this.combatRole == CombatRole.VANGUARD) {
+			this.addToInventory(this.randomizedStack(this.gearLevel.axeWeapon()));
+		}
 
-		int blockCount = Math.max(3, this.gearLevel.buildingBlocks() / 2)
-				+ this.getRandom().nextInt(this.gearLevel.buildingBlocks() + 1);
+		int blockCount = switch (this.combatRole) {
+			case RANGER -> 7 + this.gearLevel.id() * 2;
+			case TRAPPER -> 4 + this.gearLevel.id();
+			case VANGUARD, BRUTE -> 2 + this.gearLevel.id();
+		};
 		int cobblestone = Math.max(1, (int) Math.ceil(blockCount * 0.65));
 		this.addToInventory(new ItemStack(Items.COBBLESTONE, cobblestone));
 		this.addToInventory(new ItemStack(Items.OAK_PLANKS, Math.max(1, blockCount - cobblestone)));
 
-		float appleChance = 0.22F + this.gearLevel.id() * 0.11F;
+		float appleChance = 0.10F + this.gearLevel.id() * 0.05F;
 		if (this.getRandom().nextFloat() < appleChance) {
-			int apples = 1 + this.getRandom().nextInt(Math.max(1, this.gearLevel.goldenApples()));
-			this.addToInventory(new ItemStack(Items.GOLDEN_APPLE, apples));
+			this.addToInventory(new ItemStack(Items.GOLDEN_APPLE));
 		}
 		this.addToInventory(new ItemStack(Items.COOKED_BEEF, 2 + this.getRandom().nextInt(3 + this.gearLevel.id())));
 
-		boolean carriesShield = this.getRandom().nextFloat() < this.gearLevel.shieldChance();
+		boolean carriesShield = this.combatRole == CombatRole.VANGUARD
+				&& this.getRandom().nextFloat() < this.gearLevel.shieldChance();
 		boolean carriesTotem = this.getRandom().nextFloat() < this.gearLevel.totemChance();
 		if (carriesTotem) {
 			this.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.TOTEM_OF_UNDYING));
 			if (carriesShield) {
 				this.addToInventory(new ItemStack(Items.SHIELD));
 			}
-		} else if (carriesShield && !this.isArcher()) {
-			this.setItemSlot(EquipmentSlot.OFFHAND, this.randomizedStack(Items.SHIELD));
 		} else if (carriesShield) {
-			this.addToInventory(this.randomizedStack(Items.SHIELD));
-		}
-
-		if (this.gearLevel == GearLevel.FIVE && this.getRandom().nextFloat() < 0.08F) {
-			this.addToInventory(new ItemStack(Items.TOTEM_OF_UNDYING));
+			this.setItemSlot(EquipmentSlot.OFFHAND, this.randomizedStack(Items.SHIELD));
 		}
 		this.addRandomPotions();
 
 		this.configureGuaranteedDrops();
 		this.setCanPickUpLoot(true);
 		this.setPersistenceRequired();
-		this.updateAttributes();
+		this.updateAttributes(true);
 		this.updateDisplayName();
-		this.reassessWeaponGoal();
 	}
 
 	private void equipRandomArmor(EquipmentSlot slot) {
@@ -230,9 +254,9 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 
 	private Item primaryWeapon() {
 		return switch (this.combatRole) {
-			case ARCHER -> Items.BOW;
-			case AXE_FIGHTER -> this.gearLevel.axeWeapon();
-			case SWORDSMAN -> this.gearLevel.meleeWeapon();
+			case RANGER -> Items.BOW;
+			case BRUTE -> this.gearLevel.axeWeapon();
+			case VANGUARD, TRAPPER -> this.gearLevel.meleeWeapon();
 		};
 	}
 
@@ -254,17 +278,13 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 		}
 
 		this.addToInventory(this.createRandomPotion());
-		if (this.gearLevel.id() >= 4 && this.getRandom().nextFloat() < 0.36F) {
-			this.addToInventory(this.createRandomPotion());
-		}
 	}
 
 	private ItemStack createRandomPotion() {
-		Holder<Potion> potion = switch (this.getRandom().nextInt(5)) {
+		Holder<Potion> potion = switch (this.getRandom().nextInt(4)) {
 			case 0 -> Potions.STRENGTH;
 			case 1 -> Potions.SWIFTNESS;
-			case 2 -> Potions.REGENERATION;
-			case 3 -> Potions.FIRE_RESISTANCE;
+			case 2 -> Potions.FIRE_RESISTANCE;
 			default -> Potions.HEALING;
 		};
 		return PotionContents.createItemStack(Items.POTION, potion);
@@ -283,15 +303,27 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 		}
 	}
 
-	private void updateAttributes() {
+	private void updateAttributes(boolean restoreHealth) {
 		AttributeInstance maxHealth = this.getAttribute(Attributes.MAX_HEALTH);
 		AttributeInstance movement = this.getAttribute(Attributes.MOVEMENT_SPEED);
+		float previousHealth = this.getHealth();
+		double classHealth = switch (this.combatRole) {
+			case BRUTE -> 22.0;
+			case RANGER -> 18.0;
+			case VANGUARD, TRAPPER -> 20.0;
+		};
+		double classMovement = this.gearLevel.movementSpeed() + switch (this.combatRole) {
+			case BRUTE -> -0.030;
+			case RANGER -> -0.010;
+			case TRAPPER -> -0.005;
+			case VANGUARD -> 0.0;
+		};
 		if (maxHealth != null) {
-			maxHealth.setBaseValue(this.gearLevel.maxHealth());
-			this.setHealth((float) this.gearLevel.maxHealth());
+			maxHealth.setBaseValue(classHealth);
+			this.setHealth(restoreHealth ? (float) classHealth : Math.min(previousHealth, (float) classHealth));
 		}
 		if (movement != null) {
-			movement.setBaseValue(this.gearLevel.movementSpeed());
+			movement.setBaseValue(classMovement);
 		}
 	}
 
@@ -373,27 +405,6 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 				|| target.isHolding(Items.TRIDENT);
 	}
 
-	public void reassessWeaponGoal() {
-		if (this.level().isClientSide() || this.meleeGoal == null || this.bowGoal == null) {
-			return;
-		}
-		this.goalSelector.removeGoal(this.meleeGoal);
-		this.goalSelector.removeGoal(this.bowGoal);
-		if (this.isArcher() && this.getMainHandItem().is(Items.BOW) && this.hasArrows()) {
-			this.goalSelector.addGoal(4, this.bowGoal);
-		} else {
-			this.goalSelector.addGoal(4, this.meleeGoal);
-		}
-	}
-
-	@Override
-	public void onEquipItem(EquipmentSlot slot, ItemStack oldStack, ItemStack newStack) {
-		super.onEquipItem(slot, oldStack, newStack);
-		if (slot == EquipmentSlot.MAINHAND && !this.level().isClientSide()) {
-			this.reassessWeaponGoal();
-		}
-	}
-
 	@Override
 	public void performRangedAttack(LivingEntity target, float power) {
 		if (!(this.level() instanceof ServerLevel level)) {
@@ -402,7 +413,7 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 
 		int arrowSlot = this.findInventorySlot(stack -> stack.is(Items.SPECTRAL_ARROW) || stack.is(Items.ARROW));
 		if (arrowSlot == NO_SLOT) {
-			this.switchArcherToMelee();
+			this.equipBackupMelee();
 			return;
 		}
 
@@ -426,29 +437,6 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 		this.playSound(SoundEvents.SKELETON_SHOOT, 1.0F, 1.0F / (this.getRandom().nextFloat() * 0.4F + 0.8F));
 	}
 
-	private void updateAdaptiveCombatEquipment() {
-		if (!this.isArcher() || this.weaponSwitchCooldown-- > 0) {
-			return;
-		}
-		this.weaponSwitchCooldown = 8;
-
-		LivingEntity target = this.getTarget();
-		if (target == null || !target.isAlive()) {
-			return;
-		}
-
-		double distance = this.distanceToSqr(target);
-		if (this.getMainHandItem().is(Items.BOW) && (distance <= 16.0 || !this.hasArrows())) {
-			this.switchArcherToMelee();
-		} else if (!this.getMainHandItem().is(Items.BOW) && distance >= 64.0 && this.hasArrows()) {
-			this.switchMainHandFromInventory(stack -> stack.is(Items.BOW));
-		}
-	}
-
-	private void switchArcherToMelee() {
-		this.switchMainHandFromInventory(stack -> stack.is(this.gearLevel.backupWeapon()));
-	}
-
 	private boolean switchMainHandFromInventory(Predicate<ItemStack> predicate) {
 		int slot = this.findInventorySlot(predicate);
 		if (slot == NO_SLOT) {
@@ -459,12 +447,64 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 		ItemStack current = this.getMainHandItem().copy();
 		this.setItemSlot(EquipmentSlot.MAINHAND, next);
 		this.addToInventory(current);
-		this.reassessWeaponGoal();
 		return true;
 	}
 
-	private boolean hasArrows() {
+	public boolean hasArrows() {
 		return this.findInventorySlot(stack -> stack.is(Items.ARROW) || stack.is(Items.SPECTRAL_ARROW)) != NO_SLOT;
+	}
+
+	public void equipSword() {
+		if (!this.getMainHandItem().is(this.gearLevel.meleeWeapon())) {
+			this.switchMainHandFromInventory(stack -> stack.is(this.gearLevel.meleeWeapon()));
+		}
+	}
+
+	public void equipAxe() {
+		if (!this.getMainHandItem().is(this.gearLevel.axeWeapon())) {
+			this.switchMainHandFromInventory(stack -> stack.is(this.gearLevel.axeWeapon()));
+		}
+	}
+
+	public void equipBackupMelee() {
+		if (!this.getMainHandItem().is(this.gearLevel.backupWeapon())) {
+			this.switchMainHandFromInventory(stack -> stack.is(this.gearLevel.backupWeapon()));
+		}
+	}
+
+	public void equipBow() {
+		if (!this.getMainHandItem().is(Items.BOW)) {
+			this.switchMainHandFromInventory(stack -> stack.is(Items.BOW));
+		}
+	}
+
+	public boolean isHoldingAxe() {
+		return this.getMainHandItem().is(this.gearLevel.axeWeapon());
+	}
+
+	public void markCriticalAttack() {
+		this.criticalAttackPending = true;
+	}
+
+	@Override
+	public boolean doHurtTarget(ServerLevel level, Entity target) {
+		if (!this.criticalAttackPending) {
+			return super.doHurtTarget(level, target);
+		}
+
+		this.criticalAttackPending = false;
+		AttributeInstance attackDamage = this.getAttribute(Attributes.ATTACK_DAMAGE);
+		if (attackDamage == null) {
+			return super.doHurtTarget(level, target);
+		}
+
+		double baseDamage = attackDamage.getBaseValue();
+		attackDamage.setBaseValue(baseDamage * 1.5);
+		try {
+			return super.doHurtTarget(level, target);
+		} finally {
+			attackDamage.setBaseValue(baseDamage);
+		}
 	}
 
 	public boolean prepareCombatConsumable() {
@@ -583,6 +623,69 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 				this.setItemSlot(EquipmentSlot.OFFHAND, this.soldierInventory.removeItemNoUpdate(shieldSlot));
 			}
 		}
+	}
+
+	public int getRangerTowerCooldown() {
+		return this.rangerTowerCooldown;
+	}
+
+	public void setRangerTowerCooldown(int ticks) {
+		this.rangerTowerCooldown = Math.max(0, ticks);
+	}
+
+	public int getWebTrapCooldown() {
+		return this.webTrapCooldown;
+	}
+
+	public void setWebTrapCooldown(int ticks) {
+		this.webTrapCooldown = Math.max(0, ticks);
+	}
+
+	public boolean placePillarBlock(BlockPos pos) {
+		return this.placeTacticalBlock(pos);
+	}
+
+	public boolean hasCobwebs() {
+		return this.findInventorySlot(stack -> stack.is(Items.COBWEB)) != NO_SLOT;
+	}
+
+	public boolean canPlaceCobweb(BlockPos pos, LivingEntity intendedVictim) {
+		if (!(this.level() instanceof ServerLevel level)
+				|| !level.getGameRules().get(GameRules.MOB_GRIEFING)
+				|| !level.mayInteract(this, pos)
+				|| !level.getWorldBorder().isWithinBounds(pos)
+				|| !level.getBlockState(pos).canBeReplaced()
+				|| !Blocks.COBWEB.defaultBlockState().canSurvive(level, pos)
+				|| !this.hasCobwebs()
+				|| this.placedBlocks.size() >= 16) {
+			return false;
+		}
+
+		AABB safetyArea = AABB.unitCubeFromLowerCorner(Vec3.atLowerCornerOf(pos)).inflate(1.0);
+		return level.getEntitiesOfClass(
+				LivingEntity.class,
+				safetyArea,
+				entity -> entity != intendedVictim && entity != this && this.isAlliedTo(entity)
+		).isEmpty();
+	}
+
+	public boolean placeCobwebTrap(BlockPos pos, LivingEntity intendedVictim) {
+		if (!(this.level() instanceof ServerLevel level) || !this.canPlaceCobweb(pos, intendedVictim)) {
+			return false;
+		}
+		int webSlot = this.findInventorySlot(stack -> stack.is(Items.COBWEB));
+		BlockState cobweb = Blocks.COBWEB.defaultBlockState();
+		if (webSlot == NO_SLOT || !level.setBlock(pos, cobweb, 3)) {
+			return false;
+		}
+
+		this.soldierInventory.removeItem(webSlot, 1);
+		this.placedBlocks.add(pos.asLong());
+		SoundType sounds = cobweb.getSoundType();
+		level.playSound(null, pos, sounds.getPlaceSound(), SoundSource.BLOCKS, sounds.getVolume(), sounds.getPitch());
+		level.gameEvent(GameEvent.BLOCK_PLACE, pos, GameEvent.Context.of(this, cobweb));
+		this.swing(InteractionHand.MAIN_HAND);
+		return true;
 	}
 
 	public boolean canBuild() {
@@ -707,7 +810,12 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 			if (this.consumableCooldown > 0) {
 				this.consumableCooldown--;
 			}
-			this.updateAdaptiveCombatEquipment();
+			if (this.rangerTowerCooldown > 0) {
+				this.rangerTowerCooldown--;
+			}
+			if (this.webTrapCooldown > 0) {
+				this.webTrapCooldown--;
+			}
 			this.maintainOffhandEquipment();
 		}
 	}
@@ -735,6 +843,8 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 		output.putBoolean("Archer", this.isArcher());
 		output.putBoolean("Initialized", this.initialized);
 		output.putInt("ConsumableCooldown", this.consumableCooldown);
+		output.putInt("RangerTowerCooldown", this.rangerTowerCooldown);
+		output.putInt("WebTrapCooldown", this.webTrapCooldown);
 		output.putInt("GoldenApples", this.soldierInventory.countItem(Items.GOLDEN_APPLE));
 		output.putInt(
 				"BuildingBlocks",
@@ -760,6 +870,8 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 				0,
 				input.getIntOr("ConsumableCooldown", input.getIntOr("AppleCooldown", 0))
 		);
+		this.rangerTowerCooldown = Math.max(0, input.getIntOr("RangerTowerCooldown", 0));
+		this.webTrapCooldown = Math.max(0, input.getIntOr("WebTrapCooldown", 0));
 
 		this.soldierInventory.clearContent();
 		ContainerHelper.loadAllItems(input.childOrEmpty(INVENTORY_TAG), this.soldierInventory.getItems());
@@ -777,8 +889,8 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 		this.placedBlocks.clear();
 		input.listOrEmpty("PlacedBlocks", Codec.LONG).forEach(value -> this.placedBlocks.add(value.longValue()));
 		this.configureGuaranteedDrops();
+		this.updateAttributes(false);
 		this.updateDisplayName();
-		this.reassessWeaponGoal();
 	}
 
 	@Override
@@ -810,7 +922,9 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 		for (long packedPos : this.placedBlocks) {
 			BlockPos pos = BlockPos.of(packedPos);
 			BlockState state = level.getBlockState(pos);
-			if (state.is(Blocks.COBBLESTONE) || state.is(Blocks.OAK_PLANKS)) {
+			if (state.is(Blocks.COBBLESTONE)
+					|| state.is(Blocks.OAK_PLANKS)
+					|| state.is(Blocks.COBWEB)) {
 				level.removeBlock(pos, false);
 			}
 		}

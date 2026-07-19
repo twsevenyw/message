@@ -8,27 +8,27 @@ public enum GearLevel {
 	ONE(
 			1, Items.WOODEN_SWORD,
 			Items.LEATHER_HELMET, Items.LEATHER_CHESTPLATE, Items.LEATHER_LEGGINGS, Items.LEATHER_BOOTS,
-			20.0, 0.27, 1, 6, 2.0F, 0.75F, false
+			20.0, 0.220, 1, 5, 2.0F, 0.75F, false
 	),
 	TWO(
 			2, Items.STONE_SWORD,
 			Items.CHAINMAIL_HELMET, Items.CHAINMAIL_CHESTPLATE, Items.CHAINMAIL_LEGGINGS, Items.CHAINMAIL_BOOTS,
-			24.0, 0.29, 1, 10, 4.0F, 1.0F, true
+			20.0, 0.225, 1, 7, 4.0F, 1.0F, true
 	),
 	THREE(
 			3, Items.IRON_SWORD,
 			Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS,
-			28.0, 0.30, 2, 14, 8.0F, 1.25F, true
+			20.0, 0.230, 1, 9, 8.0F, 1.25F, true
 	),
 	FOUR(
 			4, Items.DIAMOND_SWORD,
 			Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS,
-			34.0, 0.32, 3, 20, 25.0F, 1.55F, true
+			20.0, 0.235, 1, 11, 25.0F, 1.55F, true
 	),
 	FIVE(
 			5, Items.NETHERITE_SWORD,
 			Items.NETHERITE_HELMET, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_LEGGINGS, Items.NETHERITE_BOOTS,
-			42.0, 0.34, 4, 28, 55.0F, 1.9F, true
+			20.0, 0.240, 1, 13, 55.0F, 1.9F, true
 	);
 
 	private final int id;
@@ -164,38 +164,58 @@ public enum GearLevel {
 	public float archerChance() {
 		return switch (this) {
 			case ONE -> 0.0F;
-			case TWO -> 0.18F;
-			case THREE -> 0.24F;
-			case FOUR -> 0.28F;
-			case FIVE -> 0.34F;
+			case TWO -> 0.22F;
+			case THREE -> 0.30F;
+			case FOUR -> 0.23F;
+			case FIVE -> 0.25F;
 		};
 	}
 
 	public float potionChance() {
 		return switch (this) {
 			case ONE -> 0.0F;
-			case TWO -> 0.12F;
-			case THREE -> 0.28F;
-			case FOUR -> 0.46F;
-			case FIVE -> 0.64F;
+			case TWO -> 0.05F;
+			case THREE -> 0.10F;
+			case FOUR -> 0.15F;
+			case FIVE -> 0.20F;
 		};
 	}
 
 	public float totemChance() {
 		return switch (this) {
 			case ONE, TWO, THREE -> 0.0F;
-			case FOUR -> 0.14F;
-			case FIVE -> 0.32F;
+			case FOUR -> 0.04F;
+			case FIVE -> 0.08F;
 		};
 	}
 
 	public float shieldChance() {
 		return switch (this) {
-			case ONE -> 0.15F;
-			case TWO -> 0.65F;
-			case THREE -> 0.78F;
-			case FOUR -> 0.88F;
+			case ONE -> 0.70F;
+			case TWO -> 0.78F;
+			case THREE -> 0.84F;
+			case FOUR -> 0.90F;
 			case FIVE -> 0.94F;
+		};
+	}
+
+	public int shieldWindowTicks() {
+		return switch (this) {
+			case ONE -> 8;
+			case TWO -> 10;
+			case THREE -> 12;
+			case FOUR -> 14;
+			case FIVE -> 16;
+		};
+	}
+
+	public int bowAttackInterval() {
+		return switch (this) {
+			case ONE -> 40;
+			case TWO -> 38;
+			case THREE -> 36;
+			case FOUR -> 34;
+			case FIVE -> 32;
 		};
 	}
 

@@ -31,7 +31,7 @@ public final class UseCombatConsumableGoal extends Goal {
 
 	@Override
 	public void start() {
-		this.retreatTicks = 24;
+		this.retreatTicks = 18;
 		this.consuming = false;
 		if (!this.shouldRetreat()) {
 			this.beginConsuming();
@@ -47,12 +47,12 @@ public final class UseCombatConsumableGoal extends Goal {
 		LivingEntity threat = this.soldier.getTarget();
 		if (threat != null && threat.isAlive()) {
 			this.soldier.getLookControl().setLookAt(threat, 40.0F, 40.0F);
-			if (this.retreatTicks-- > 0 && this.soldier.distanceToSqr(threat) < 81.0) {
+			if (this.retreatTicks-- > 0 && this.soldier.distanceToSqr(threat) < 64.0) {
 				Vec3 away = this.soldier.position().subtract(threat.position());
 				if (away.lengthSqr() > 0.01) {
 					Vec3 destination = this.soldier.position().add(away.normalize().scale(8.0));
-					this.soldier.setSprinting(true);
-					this.soldier.getNavigation().moveTo(destination.x, destination.y, destination.z, 1.45);
+					this.soldier.setSprinting(false);
+					this.soldier.getNavigation().moveTo(destination.x, destination.y, destination.z, 1.0);
 					return;
 				}
 			}
@@ -75,7 +75,7 @@ public final class UseCombatConsumableGoal extends Goal {
 
 	private boolean shouldRetreat() {
 		LivingEntity threat = this.soldier.getTarget();
-		return threat != null && threat.isAlive() && this.soldier.distanceToSqr(threat) < 81.0;
+		return threat != null && threat.isAlive() && this.soldier.distanceToSqr(threat) < 64.0;
 	}
 
 	private void beginConsuming() {
