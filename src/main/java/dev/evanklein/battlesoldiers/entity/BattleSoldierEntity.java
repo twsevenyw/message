@@ -102,7 +102,7 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 				5,
 				true,
 				false,
-				(target, level) -> this.isValidPlayerTarget(target)
+				(target, level) -> target instanceof Player player && this.isValidPlayerTarget(player)
 		));
 		this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(
 				this,
@@ -110,7 +110,8 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 				5,
 				true,
 				false,
-				(target, level) -> this.isValidSoldierTarget(target)
+				(target, level) -> target instanceof BattleSoldierEntity soldier
+						&& this.isValidSoldierTarget(soldier)
 		));
 
 		this.reassessWeaponGoal();
