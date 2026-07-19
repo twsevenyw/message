@@ -241,6 +241,7 @@ public final class SoldierCommands {
 		int red = 0;
 		int blue = 0;
 		int engaged = 0;
+		int blocking = 0;
 		for (BattleSoldierEntity soldier : getSoldiers(context.getSource().getServer())) {
 			switch (soldier.getSquad()) {
 				case TRAINING -> training++;
@@ -250,6 +251,9 @@ public final class SoldierCommands {
 			if (soldier.getTarget() != null) {
 				engaged++;
 			}
+			if (soldier.isBlocking()) {
+				blocking++;
+			}
 		}
 
 		int total = training + red + blue;
@@ -257,6 +261,7 @@ public final class SoldierCommands {
 		int redResult = red;
 		int blueResult = blue;
 		int engagedResult = engaged;
+		int blockingResult = blocking;
 		context.getSource().sendSuccess(
 				() -> Component.translatable(
 						"commands.battle_soldiers.status",
@@ -264,7 +269,8 @@ public final class SoldierCommands {
 						trainingResult,
 						redResult,
 						blueResult,
-						engagedResult
+						engagedResult,
+						blockingResult
 				),
 				false
 		);

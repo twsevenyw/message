@@ -514,8 +514,9 @@ public class BattleSoldierEntity extends Zombie implements RangedAttackMob {
 		}
 
 		this.savedOffhand = this.getOffhandItem().copy();
-		this.activeConsumable = this.soldierInventory.removeItem(this.preparedConsumableSlot, 1);
-		this.setItemSlot(EquipmentSlot.OFFHAND, this.activeConsumable);
+		ItemStack consumable = this.soldierInventory.removeItem(this.preparedConsumableSlot, 1);
+		this.activeConsumable = consumable.copy();
+		this.setItemSlot(EquipmentSlot.OFFHAND, consumable);
 		this.startUsingItem(InteractionHand.OFF_HAND);
 	}
 
