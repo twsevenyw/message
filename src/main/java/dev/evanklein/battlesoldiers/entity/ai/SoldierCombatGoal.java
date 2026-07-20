@@ -48,7 +48,7 @@ public final class SoldierCombatGoal extends Goal {
 	@Override
 	public boolean canUse() {
 		LivingEntity target = this.soldier.getTarget();
-		return target != null && target.isAlive();
+		return target != null && target.isAlive() || this.soldier.findNearestCrystal(20.0) != null;
 	}
 
 	@Override
@@ -80,6 +80,7 @@ public final class SoldierCombatGoal extends Goal {
 	public void tick() {
 		LivingEntity target = this.soldier.getTarget();
 		if (target == null) {
+			this.tickCrystalResponse();
 			return;
 		}
 
@@ -167,9 +168,15 @@ public final class SoldierCombatGoal extends Goal {
 
 		if (this.soldier.getCombatRole() == CombatRole.RANGER
 				&& this.soldier.hasArrows()
-				&& distance <= 900.0
-				&& this.soldier.hasLineOfSight(crystal)) {
+				&& distance <= 900.0) {
 			this.soldier.equipBow();
+			if (!this.soldier.hasLineOfSight(crystal)) {
+				if (this.soldier.isUsingItem()) {
+					this.soldier.stopUsingItem();
+				}
+				this.moveAwayFromPoint(crystal.position(), 4.0, 1.0);
+				return true;
+			}
 			this.soldier.getNavigation().stop();
 			this.soldier.getMoveControl().setWait();
 			this.soldier.getLookControl().setLookAt(crystal, 45.0F, 45.0F);
