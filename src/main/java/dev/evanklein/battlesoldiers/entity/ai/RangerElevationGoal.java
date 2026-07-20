@@ -32,6 +32,7 @@ public final class RangerElevationGoal extends Goal {
 		return this.soldier.getCombatRole() == CombatRole.RANGER
 				&& target != null
 				&& target.isAlive()
+				&& !this.soldier.hasSpentRangerTowerThisEngagement()
 				&& this.soldier.getRangerTowerCooldown() <= 0
 				&& this.soldier.canBuild()
 				&& this.soldier.onGround()

@@ -29,6 +29,9 @@ public final class BreachObstacleGoal extends Goal {
 
 	@Override
 	public boolean canUse() {
+		if (this.soldier.shouldHoldRangerPerch()) {
+			return false;
+		}
 		if (!(this.soldier.level() instanceof ServerLevel level) || this.soldier.tickCount < this.nextScanTick) {
 			return false;
 		}

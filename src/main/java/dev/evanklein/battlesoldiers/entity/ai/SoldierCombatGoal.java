@@ -6,15 +6,18 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.item.BowItem;
 import net.minecraft.world.item.CrossbowItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.MaceItem;
 import net.minecraft.world.item.TridentItem;
 import net.minecraft.world.item.component.BlocksAttacks;
 import net.minecraft.world.phys.Vec3;
@@ -94,6 +97,12 @@ public final class SoldierCombatGoal extends Goal {
 			this.critCooldown--;
 		}
 
+		if (this.tickOverheadWeaponEvasion(target)) {
+			return;
+		}
+		if (this.tickCrystalResponse()) {
+			return;
+		}
 		if (this.critJump) {
 			this.tickCriticalJump(target);
 			return;
@@ -110,6 +119,64 @@ public final class SoldierCombatGoal extends Goal {
 	@Override
 	public boolean requiresUpdateEveryTick() {
 		return true;
+	}
+
+	private boolean tickOverheadWeaponEvasion(LivingEntity target) {
+		ItemStack weapon = target.isUsingItem() ? target.getUseItem() : target.getMainHandItem();
+		boolean mace = weapon.is(Items.MACE) || weapon.getItem() instanceof MaceItem;
+		boolean kinetic = weapon.has(DataComponents.KINETIC_WEAPON);
+		boolean genericWeapon = weapon.has(DataComponents.WEAPON) || kinetic;
+		double verticalDistance = target.getY() - this.soldier.getY();
+		double deltaX = target.getX() - this.soldier.getX();
+		double deltaZ = target.getZ() - this.soldier.getZ();
+		double horizontalDistance = deltaX * deltaX + deltaZ * deltaZ;
+		boolean descending = target.getDeltaMovement().y < -0.05 || target.fallDistance > 0.5F;
+		boolean dangerous = genericWeapon
+				&& verticalDistance >= 2.5
+				&& horizontalDistance <= 49.0
+				&& (descending || mace || kinetic);
+		if (!dangerous) {
+			return false;
+		}
+
+		if (this.soldier.isUsingItem()) {
+			this.soldier.stopUsingItem();
+		}
+		double predictionTicks = Mth.clamp(verticalDistance / 0.7, 2.0, 10.0);
+		Vec3 impact = target.position().add(target.getDeltaMovement().scale(predictionTicks));
+		this.moveAwayFromPoint(impact, 5.0, 1.18);
+		this.soldier.setSprinting(true);
+		return true;
+	}
+
+	private boolean tickCrystalResponse() {
+		EndCrystal crystal = this.soldier.findNearestCrystal(20.0);
+		if (crystal == null) {
+			return false;
+		}
+
+		double distance = this.soldier.distanceToSqr(crystal);
+		boolean safeToPop = this.soldier.canSafelyPopCrystal(crystal);
+		if (distance < 144.0 || !safeToPop) {
+			if (this.soldier.isUsingItem()) {
+				this.soldier.stopUsingItem();
+			}
+			this.moveAwayFromPoint(crystal.position(), 7.0, 1.12);
+			return true;
+		}
+
+		if (this.soldier.getCombatRole() == CombatRole.RANGER
+				&& this.soldier.hasArrows()
+				&& distance <= 900.0
+				&& this.soldier.hasLineOfSight(crystal)) {
+			this.soldier.equipBow();
+			this.soldier.getNavigation().stop();
+			this.soldier.getMoveControl().setWait();
+			this.soldier.getLookControl().setLookAt(crystal, 45.0F, 45.0F);
+			this.tickBowDrawAndFire(crystal);
+			return true;
+		}
+		return false;
 	}
 
 	private void tickVanguard(LivingEntity target) {
@@ -151,9 +218,8 @@ public final class SoldierCombatGoal extends Goal {
 		double deltaX = target.getX() - this.soldier.getX();
 		double deltaZ = target.getZ() - this.soldier.getZ();
 		double distance = deltaX * deltaX + deltaZ * deltaZ;
-		boolean safelyElevated = this.soldier.getY() - target.getY() >= 2.5;
-		double preferredMin = 36.0;
-		double preferredMax = Math.pow(10.0 + this.soldier.getGearLevel().id() * 1.6, 2.0);
+		double bowRange = Math.min(30.0, 14.0 + this.soldier.getGearLevel().id() * 2.0);
+		double preferredMax = bowRange * bowRange;
 
 		if (!this.soldier.hasArrows()) {
 			this.soldier.equipBackupMelee();
@@ -161,12 +227,29 @@ public final class SoldierCombatGoal extends Goal {
 			return;
 		}
 
-		if (distance < preferredMin && !safelyElevated) {
+		boolean canSee = this.soldier.getSensing().hasLineOfSight(target);
+		if (this.soldier.shouldHoldRangerPerch()) {
+			this.soldier.equipBow();
+			this.soldier.getNavigation().stop();
+			this.soldier.getMoveControl().setWait();
+			if (!canSee || distance > preferredMax) {
+				if (this.soldier.isUsingItem()) {
+					this.soldier.stopUsingItem();
+				}
+				return;
+			}
+			this.tickBowDrawAndFire(target);
+			return;
+		}
+
+		boolean hasFrontline = this.soldier.hasFrontlineSupport(target);
+		double preferredMin = hasFrontline ? 36.0 : 9.0;
+		if (distance < preferredMin) {
 			if (this.soldier.isUsingItem()) {
 				this.soldier.stopUsingItem();
 			}
 			this.soldier.equipBackupMelee();
-			if (distance <= 4.0) {
+			if (!hasFrontline || distance <= 4.0) {
 				this.tickMelee(target, CombatRole.RANGER);
 			} else {
 				this.retreatFrom(target, 5.0);
@@ -175,14 +258,6 @@ public final class SoldierCombatGoal extends Goal {
 		}
 
 		this.soldier.equipBow();
-		boolean canSee = this.soldier.getSensing().hasLineOfSight(target);
-		if (safelyElevated && !canSee) {
-			if (this.soldier.isUsingItem()) {
-				this.soldier.stopUsingItem();
-			}
-			this.soldier.getNavigation().stop();
-			return;
-		}
 		if (distance > preferredMax || !canSee) {
 			if (this.soldier.isUsingItem()) {
 				this.soldier.stopUsingItem();
@@ -192,7 +267,7 @@ public final class SoldierCombatGoal extends Goal {
 		}
 
 		this.soldier.getNavigation().stop();
-		if (!safelyElevated) {
+		if (hasFrontline) {
 			this.soldier.getMoveControl().strafe(
 					distance < preferredMin * 1.35 ? -0.25F : 0.12F,
 					this.strafeClockwise ? 0.38F : -0.38F
@@ -202,12 +277,15 @@ public final class SoldierCombatGoal extends Goal {
 				this.strafeClockwise = !this.strafeClockwise;
 			}
 		}
+		this.tickBowDrawAndFire(target);
+	}
 
+	private void tickBowDrawAndFire(Entity target) {
 		if (this.soldier.isUsingItem()) {
 			int drawTicks = this.soldier.getTicksUsingItem();
 			if (drawTicks >= BowItem.MAX_DRAW_DURATION) {
 				this.soldier.stopUsingItem();
-				this.soldier.performRangedAttack(target, BowItem.getPowerForTime(drawTicks));
+				this.soldier.shootArrowAt(target, BowItem.getPowerForTime(drawTicks));
 				this.bowCooldown = this.soldier.getGearLevel().bowAttackInterval();
 			}
 		} else if (this.bowCooldown <= 0) {
@@ -349,6 +427,9 @@ public final class SoldierCombatGoal extends Goal {
 		}
 		if (target.isUsingItem()) {
 			ItemStack used = target.getUseItem();
+			if (used.has(DataComponents.KINETIC_WEAPON)) {
+				return target.getTicksUsingItem() >= 3 && this.isFacingSoldier(target, 0.22);
+			}
 			if (used.is(Items.BOW)
 					|| used.is(Items.CROSSBOW)
 					|| used.is(Items.TRIDENT)
@@ -423,13 +504,21 @@ public final class SoldierCombatGoal extends Goal {
 
 	private void retreatFrom(LivingEntity target, double distance) {
 		Vec3 predictedTarget = target.position().add(target.getDeltaMovement().scale(4.0));
-		Vec3 difference = this.soldier.position().subtract(predictedTarget);
+		this.moveAwayFromPoint(predictedTarget, distance, 1.08);
+	}
+
+	private void moveAwayFromPoint(Vec3 threat, double distance, double speed) {
+		Vec3 difference = this.soldier.position().subtract(threat);
 		Vec3 away = new Vec3(difference.x, 0.0, difference.z);
 		if (away.horizontalDistanceSqr() < 0.01) {
-			away = new Vec3(1.0, 0.0, 0.0);
+			Vec3 look = this.soldier.getLookAngle();
+			away = new Vec3(-look.z, 0.0, look.x);
+			if (away.horizontalDistanceSqr() < 0.01) {
+				away = new Vec3(1.0, 0.0, 0.0);
+			}
 		}
 		Vec3 destination = this.soldier.position().add(away.normalize().scale(distance));
-		this.soldier.getNavigation().moveTo(destination.x, destination.y, destination.z, 1.08);
+		this.soldier.getNavigation().moveTo(destination.x, destination.y, destination.z, speed);
 	}
 
 	private boolean shouldAttemptCritical(LivingEntity target, CombatRole role) {

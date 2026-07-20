@@ -1,5 +1,6 @@
 package dev.evanklein.battlesoldiers.entity.ai;
 
+import dev.evanklein.battlesoldiers.battle.CombatRole;
 import dev.evanklein.battlesoldiers.entity.BattleSoldierEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -22,6 +23,11 @@ public final class TacticalBuildGoal extends Goal {
 
 	@Override
 	public boolean canUse() {
+		if (this.soldier.getCombatRole() == CombatRole.RANGER
+				&& (this.soldier.shouldHoldRangerPerch()
+						|| this.soldier.hasSpentRangerTowerThisEngagement())) {
+			return false;
+		}
 		if (this.cooldownTicks > 0) {
 			this.cooldownTicks--;
 			return false;

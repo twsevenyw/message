@@ -9,6 +9,7 @@ import dev.evanklein.battlesoldiers.entity.ai.BreachObstacleGoal;
 import dev.evanklein.battlesoldiers.entity.ai.ObstructionAwareTargetGoal;
 import dev.evanklein.battlesoldiers.entity.ai.RangerElevationGoal;
 import dev.evanklein.battlesoldiers.entity.ai.SoldierCombatGoal;
+import dev.evanklein.battlesoldiers.entity.ai.SoldierWanderGoal;
 import dev.evanklein.battlesoldiers.entity.ai.TacticalBuildGoal;
 import dev.evanklein.battlesoldiers.entity.ai.TrapperWebGoal;
 import dev.evanklein.battlesoldiers.entity.ai.UseCombatConsumableGoal;
@@ -41,8 +42,8 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
-import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.monster.RangedAttackMob;
 import net.minecraft.world.entity.player.Inventory;
@@ -93,6 +94,10 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	private int preparedConsumableSlot = NO_SLOT;
 	private int rangerTowerCooldown;
 	private int webTrapCooldown;
+	@Nullable
+	private BlockPos rangerPerchTop;
+	private boolean rangerTowerSpent;
+	private int rangerTargetlessTicks;
 	private ItemStack activeConsumable = ItemStack.EMPTY;
 	private ItemStack savedOffhand = ItemStack.EMPTY;
 
@@ -117,7 +122,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		this.goalSelector.addGoal(3, new TrapperWebGoal(this));
 		this.goalSelector.addGoal(3, new TacticalBuildGoal(this));
 		this.goalSelector.addGoal(4, new SoldierCombatGoal(this));
-		this.goalSelector.addGoal(7, new WaterAvoidingRandomStrollGoal(this, 0.9));
+		this.goalSelector.addGoal(7, new SoldierWanderGoal(this, 0.9));
 		this.goalSelector.addGoal(8, new LookAtPlayerGoal(this, LivingEntity.class, 10.0F));
 		this.goalSelector.addGoal(9, new RandomLookAroundGoal(this));
 
@@ -548,8 +553,61 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		}).isEmpty();
 	}
 
+	@Nullable
+	public EndCrystal findNearestCrystal(double radius) {
+		if (!(this.level() instanceof ServerLevel level)) {
+			return null;
+		}
+		EndCrystal nearest = null;
+		double nearestDistance = Double.MAX_VALUE;
+		for (EndCrystal crystal : level.getEntitiesOfClass(
+				EndCrystal.class,
+				this.getBoundingBox().inflate(radius),
+				crystal -> !crystal.isRemoved()
+		)) {
+			double distance = this.distanceToSqr(crystal);
+			if (distance < nearestDistance) {
+				nearest = crystal;
+				nearestDistance = distance;
+			}
+		}
+		return nearest;
+	}
+
+	public boolean canSafelyPopCrystal(EndCrystal crystal) {
+		if (!(this.level() instanceof ServerLevel level) || this.distanceToSqr(crystal) < 100.0) {
+			return false;
+		}
+		AABB blastArea = crystal.getBoundingBox().inflate(12.0);
+		return level.getEntitiesOfClass(
+				LivingEntity.class,
+				blastArea,
+				living -> living != this && living.isAlive() && this.isAlliedTo(living)
+		).isEmpty();
+	}
+
+	public boolean hasFrontlineSupport(LivingEntity target) {
+		if (!(this.level() instanceof ServerLevel level)) {
+			return false;
+		}
+		AABB supportArea = target.getBoundingBox().inflate(8.0, 4.0, 8.0);
+		return !level.getEntitiesOfClass(
+				BattleSoldierEntity.class,
+				supportArea,
+				candidate -> candidate != this
+						&& candidate.isAlive()
+						&& candidate.getSquad() == this.squad
+						&& candidate.getCombatRole() != CombatRole.RANGER
+						&& candidate.getTarget() != null
+		).isEmpty();
+	}
+
 	@Override
 	public void performRangedAttack(LivingEntity target, float power) {
+		this.shootArrowAt(target, power);
+	}
+
+	public void shootArrowAt(Entity target, float power) {
 		if (!(this.level() instanceof ServerLevel level)) {
 			return;
 		}
@@ -563,9 +621,12 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		ItemStack bow = this.getMainHandItem();
 		ItemStack ammunition = this.soldierInventory.removeItem(arrowSlot, 1);
 		AbstractArrow arrow = ProjectileUtil.getMobArrow(this, ammunition, power, bow);
-		double x = target.getX() - this.getX();
-		double y = target.getY(0.3333333333333333) - arrow.getY();
-		double z = target.getZ() - this.getZ();
+		Vec3 aimPoint = target instanceof LivingEntity living
+				? new Vec3(living.getX(), living.getY(0.3333333333333333), living.getZ())
+				: target.getBoundingBox().getCenter();
+		double x = aimPoint.x - this.getX();
+		double y = aimPoint.y - arrow.getY();
+		double z = aimPoint.z - this.getZ();
 		double horizontal = Math.sqrt(x * x + z * z);
 		Projectile.spawnProjectileUsingShoot(
 				arrow,
@@ -793,6 +854,37 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		this.rangerTowerCooldown = Math.max(0, ticks);
 	}
 
+	public boolean hasSpentRangerTowerThisEngagement() {
+		return this.rangerTowerSpent;
+	}
+
+	public void recordRangerTowerBlock(BlockPos top) {
+		this.rangerPerchTop = top.immutable();
+		this.rangerTowerSpent = true;
+		this.rangerTargetlessTicks = 0;
+	}
+
+	public boolean isHoldingRangerPerch() {
+		if (this.combatRole != CombatRole.RANGER || this.rangerPerchTop == null) {
+			return false;
+		}
+		if (!this.placedBlocks.contains(this.rangerPerchTop.asLong())
+				|| !this.level().getBlockState(this.rangerPerchTop).blocksMotion()) {
+			return false;
+		}
+		double centerX = this.rangerPerchTop.getX() + 0.5;
+		double centerZ = this.rangerPerchTop.getZ() + 0.5;
+		double deltaX = this.getX() - centerX;
+		double deltaZ = this.getZ() - centerZ;
+		return deltaX * deltaX + deltaZ * deltaZ <= 1.0
+				&& this.getY() >= this.rangerPerchTop.getY() + 0.75
+				&& this.getY() <= this.rangerPerchTop.getY() + 2.5;
+	}
+
+	public boolean shouldHoldRangerPerch() {
+		return this.isHoldingRangerPerch();
+	}
+
 	public int getWebTrapCooldown() {
 		return this.webTrapCooldown;
 	}
@@ -802,7 +894,11 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	}
 
 	public boolean placePillarBlock(BlockPos pos) {
-		return this.placeTacticalBlock(pos);
+		boolean placed = this.placeTacticalBlock(pos);
+		if (placed) {
+			this.recordRangerTowerBlock(pos);
+		}
+		return placed;
 	}
 
 	public boolean hasCobwebs() {
@@ -976,6 +1072,17 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 			if (this.webTrapCooldown > 0) {
 				this.webTrapCooldown--;
 			}
+			if (this.combatRole == CombatRole.RANGER) {
+				if (this.getTarget() == null) {
+					this.rangerTargetlessTicks++;
+					if (this.rangerTargetlessTicks >= 100 && !this.isHoldingRangerPerch()) {
+						this.rangerTowerSpent = false;
+						this.rangerPerchTop = null;
+					}
+				} else {
+					this.rangerTargetlessTicks = 0;
+				}
+			}
 			this.maintainOffhandEquipment();
 		}
 	}
@@ -1005,6 +1112,10 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		output.putInt("ConsumableCooldown", this.consumableCooldown);
 		output.putInt("RangerTowerCooldown", this.rangerTowerCooldown);
 		output.putInt("WebTrapCooldown", this.webTrapCooldown);
+		output.putBoolean("RangerTowerSpent", this.rangerTowerSpent);
+		if (this.rangerPerchTop != null) {
+			output.store("RangerPerchTop", BlockPos.CODEC, this.rangerPerchTop);
+		}
 		output.putInt("GoldenApples", this.soldierInventory.countItem(Items.GOLDEN_APPLE));
 		output.putInt(
 				"BuildingBlocks",
@@ -1032,6 +1143,8 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		);
 		this.rangerTowerCooldown = Math.max(0, input.getIntOr("RangerTowerCooldown", 0));
 		this.webTrapCooldown = Math.max(0, input.getIntOr("WebTrapCooldown", 0));
+		this.rangerTowerSpent = input.getBooleanOr("RangerTowerSpent", false);
+		this.rangerPerchTop = input.read("RangerPerchTop", BlockPos.CODEC).orElse(null);
 
 		this.soldierInventory.clearContent();
 		ContainerHelper.loadAllItems(input.childOrEmpty(INVENTORY_TAG), this.soldierInventory.getItems());

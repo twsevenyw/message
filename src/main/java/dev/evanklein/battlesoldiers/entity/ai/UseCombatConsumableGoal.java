@@ -78,6 +78,9 @@ public final class UseCombatConsumableGoal extends Goal {
 	}
 
 	private boolean shouldRetreat() {
+		if (this.soldier.shouldHoldRangerPerch()) {
+			return false;
+		}
 		LivingEntity threat = this.soldier.getTarget();
 		return threat != null && threat.isAlive() && this.soldier.distanceToSqr(threat) < 64.0;
 	}
