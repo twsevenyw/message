@@ -20,19 +20,24 @@
 | `src/client/java/dev/evanklein/battlesoldiers/client/BattleSoldiersClient.java` | Vanilla zombie renderer registration for the custom soldier type |
 | `releases/battle-soldiers-1.0.0.jar` | Previous prebuilt GitHub-hosted release |
 | `releases/battle-soldiers-1.1.0.jar` | Previous player-like-inventory release |
-| `releases/battle-soldiers-1.2.0.jar` | Current custom-combat GitHub-hosted release |
+| `releases/battle-soldiers-1.2.0.jar` | Previous custom-combat release |
+| `releases/battle-soldiers-1.3.0.jar` | Current reactive-combat GitHub-hosted release |
 
 ## Current State
 - Complete implementation is on `cursor/battle-soldiers-mod-1918`; draft PR #1 targets `main`.
 - `/soldiers <count> <gear 1-5>` and advanced battle/team/join/clear/status subcommands are implemented.
-- Version 1.2.0 uses a custom `Monster` entity and unified combat state machine; no vanilla zombie, melee, or bow combat goals remain.
+- Version 1.3.0 uses a custom `Monster` entity and unified combat state machine; no vanilla zombie, melee, or bow combat goals remain.
 - Four classes are implemented: shield-countering Vanguard, slow jump-crit Brute, tower/cover Ranger, and tier-4/5 cobweb Trapper.
-- Effective class movement is about 0.19–0.24, class health remains 18–22 across every gear tier, and consumable/totem odds are sharply reduced.
-- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-1.2.0.jar`.
+- Effective class movement is about 0.22–0.28, class health remains 18–22, and pursuit predicts moving targets without returning to extreme speeds.
+- Healing now always transitions from retreat to consumption; tier-4/5 soldiers carry a guaranteed healing option.
+- Shields react to explicit attack telegraphs, charged ranged weapons, and converging projectiles instead of distance timers.
+- Every melee class attempts predictive jump criticals; Brutes use 1.5× and other classes 1.25× total-attack multipliers.
+- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-1.3.0.jar`.
 - A downloadable copy is staged at `/opt/cursor/artifacts/battle-soldiers-1.0.0.jar` (SHA-256 `344011d03587c796d13c037b1112eae672c0d950bcb42c1ff0d7107b635e43e1`).
 - Version 1.1.0 is committed at `releases/battle-soldiers-1.1.0.jar` with SHA-256 `627ebf2259d9be25a4a844b36646a9a43b1997065cb2b4b4ed1b154a1c80f6ab`.
 - Version 1.2.0 is committed at `releases/battle-soldiers-1.2.0.jar` with SHA-256 `5e7d3ba81067e7af9f2db521dc79f3d4513e6928c81da8b85ebfd17eb37c5363`.
-- Dedicated-server checks passed for all four classes, custom kills, shield windows, Ranger tracked towers, Trapper web consumption, class health caps, healing item switches, cleanup, inventory persistence, and drops.
+- Version 1.3.0 is committed at `releases/battle-soldiers-1.3.0.jar` with SHA-256 `f360abdbde95f14494550d20b34397f5be5e15c4be8d325496caf6949f010aa1`.
+- Dedicated-server checks passed for pressured healing, predictive pursuit, all classes, custom kills, 22 reactive shield raises and 10 landed crits in a 40-soldier telemetry battle, cleanup, persistence, and drops.
 - All source, documentation, Gradle wrapper files, and release JARs are committed and synchronized to the GitHub feature branch.
 - The repository's pre-existing Python encryption/web-app files remain outside the Gradle source sets and are unchanged.
 
@@ -51,6 +56,9 @@
 | 2026-07-19 | Use one custom combat state machine for shields, windups, recoveries, bow drawing, weapon swaps, spacing, and jump crits. | A single movement/attack owner avoids conflicting goals and makes every action readable and punishable. |
 | 2026-07-19 | Keep tier progression in equipment/timing rather than health or raw movement. | Difficulty should come from tactics; class health is fixed at 18–22 and movement at roughly 0.19–0.24. |
 | 2026-07-19 | Give Rangers tracked towers/cover and tier-4/5 Trappers finite cobwebs. | These create distinct battlefield roles while retaining mob-griefing gates and automatic cleanup. |
+| 2026-07-20 | Trigger shields from concrete threat sensors and enemy attack telegraphs. | Distance-based guard cycles looked random and routinely ended before the actual attack window. |
+| 2026-07-20 | Predict moving targets during pursuit/windups and raise movement to 0.22–0.28. | Current-position pathing plus 0.19–0.24 movement was easy to circle-strafe and dodge. |
+| 2026-07-20 | Guarantee high-tier healing and force retreat to end in consumption. | A continuation off-by-one stopped healing under pressure one tick before item use began. |
 
 ## Agent Activity Log
 | Date | Agent | What Changed |
@@ -62,3 +70,4 @@
 | 2026-07-19 | GPT-5.6 Sol | Shipped the 1.1.0 player-like AI overhaul with randomized inventories, active offhand use, purposeful tactics, death drops, runtime validation, and a rebuilt GitHub artifact. |
 | 2026-07-19 | GPT-5.6 Sol | Replaced vanilla combat inheritance with the 1.2.0 custom four-class state machine, rebalanced stats, runtime-tested class tactics, and packaged the new release. |
 | 2026-07-19 | GPT-5.6 Sol | Verified the complete 1.2.0 project and release history are committed and pushed to GitHub. |
+| 2026-07-20 | GPT-5.6 Sol | Shipped 1.3.0 with guaranteed pressured healing, reactive shields, predictive interception, class-wide jump crits, telemetry validation, and a rebuilt artifact. |
