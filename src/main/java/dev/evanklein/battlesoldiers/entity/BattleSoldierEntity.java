@@ -81,7 +81,10 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	private GearLevel gearLevel = GearLevel.ONE;
 	private CombatRole combatRole = CombatRole.VANGUARD;
 	private boolean initialized;
+	private boolean attackTelegraphed;
 	private double criticalAttackMultiplier = 1.0;
+	private int criticalHits;
+	private int reactiveShieldUses;
 	private int consumableCooldown;
 	private int preparedConsumableSlot = NO_SLOT;
 	private int rangerTowerCooldown;
@@ -413,6 +416,26 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 				|| target.isHolding(Items.TRIDENT);
 	}
 
+	public boolean isAttackTelegraphed() {
+		return this.attackTelegraphed;
+	}
+
+	public void setAttackTelegraphed(boolean telegraphed) {
+		this.attackTelegraphed = telegraphed;
+	}
+
+	public void recordReactiveShieldUse() {
+		this.reactiveShieldUses++;
+	}
+
+	public int getReactiveShieldUses() {
+		return this.reactiveShieldUses;
+	}
+
+	public int getCriticalHits() {
+		return this.criticalHits;
+	}
+
 	public boolean hasIncomingProjectile(double radius) {
 		if (!(this.level() instanceof ServerLevel level)) {
 			return false;
@@ -548,7 +571,11 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		double totalDamage = attackDamage.getValue();
 		attackDamage.setBaseValue(baseDamage + totalDamage * (multiplier - 1.0));
 		try {
-			return super.doHurtTarget(level, target);
+			boolean hit = super.doHurtTarget(level, target);
+			if (hit) {
+				this.criticalHits++;
+			}
+			return hit;
 		} finally {
 			attackDamage.setBaseValue(baseDamage);
 		}

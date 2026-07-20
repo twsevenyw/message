@@ -68,6 +68,7 @@ public final class SoldierCombatGoal extends Goal {
 		this.soldier.getNavigation().stop();
 		this.soldier.setSprinting(false);
 		this.soldier.setAggressive(false);
+		this.soldier.setAttackTelegraphed(false);
 		this.attackWindup = 0;
 		this.critJump = false;
 	}
@@ -223,6 +224,7 @@ public final class SoldierCombatGoal extends Goal {
 					this.soldier.equipAxe();
 				}
 				this.attackWindup = this.attackWindupTicks(role);
+				this.soldier.setAttackTelegraphed(true);
 			}
 			return;
 		}
@@ -249,12 +251,14 @@ public final class SoldierCombatGoal extends Goal {
 		boolean criticalReach = this.critJump
 				&& this.soldier.distanceToSqr(target) <= 4.0;
 		if (!this.soldier.isWithinMeleeAttackRange(target) && !criticalReach) {
+			this.soldier.setAttackTelegraphed(false);
 			this.attackCooldown = 8;
 			return;
 		}
 
 		boolean wasBlocking = target.isBlocking();
 		ItemStack blockingItem = target.getItemBlockingWith();
+		this.soldier.setAttackTelegraphed(false);
 		this.soldier.swing(InteractionHand.MAIN_HAND);
 		ServerLevel level = getServerLevel(this.soldier);
 		boolean hit = this.soldier.doHurtTarget(level, target);
@@ -288,6 +292,7 @@ public final class SoldierCombatGoal extends Goal {
 
 	private void beginShield() {
 		this.shieldTicks = this.soldier.getGearLevel().shieldWindowTicks() + 5;
+		this.soldier.recordReactiveShieldUse();
 		this.soldier.startUsingItem(InteractionHand.OFF_HAND);
 	}
 
@@ -333,6 +338,9 @@ public final class SoldierCombatGoal extends Goal {
 		}
 		if (target instanceof Player player) {
 			return player.getAttackStrengthScale(0.0F) >= 0.72F;
+		}
+		if (target instanceof BattleSoldierEntity battleSoldier) {
+			return battleSoldier.isAttackTelegraphed();
 		}
 		if (target instanceof Mob mob) {
 			return mob.isAggressive() && (mob.isWithinMeleeAttackRange(this.soldier) || target.swinging);
@@ -384,11 +392,13 @@ public final class SoldierCombatGoal extends Goal {
 			this.soldier.markCriticalAttack(multiplier);
 			this.performMeleeAttack(target, this.criticalRole);
 			this.critJump = false;
+			this.soldier.setAttackTelegraphed(false);
 			this.critCooldown = this.criticalRole == CombatRole.BRUTE ? 30 : 55;
 			return;
 		}
 		if (--this.critTimeout <= 0 || (this.critAirborne && this.soldier.onGround())) {
 			this.critJump = false;
+			this.soldier.setAttackTelegraphed(false);
 			this.attackCooldown = 6;
 			this.critCooldown = 24;
 		}
@@ -433,6 +443,7 @@ public final class SoldierCombatGoal extends Goal {
 		this.critTimeout = 14;
 		this.criticalRole = role;
 		this.attackWindup = 0;
+		this.soldier.setAttackTelegraphed(true);
 		this.soldier.getNavigation().stop();
 		this.soldier.setSprinting(false);
 
