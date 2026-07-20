@@ -15,7 +15,7 @@ Install the mod and Fabric API in the `mods` folder. Multiplayer servers and con
 
 ## Download
 
-[Download Battle Soldiers 1.4.0](releases/battle-soldiers-1.4.0.jar?raw=1)
+[Download Battle Soldiers 1.5.0](releases/battle-soldiers-1.5.0.jar?raw=1)
 
 ## Quick start
 
@@ -77,9 +77,13 @@ Gear tiers improve equipment and tactical timing—not health. Every tier stays 
 - Every soldier owns a persistent 36-slot inventory containing its actual blocks, arrows, backup weapons, food, golden apples, shields, totems, and potions.
 - A single custom state machine controls pathing, spacing, attack windups, recovery windows, shields, bows, weapon swaps, and class tactics.
 - Vanguards react to enemy attack telegraphs, melee posture, charged ranged weapons, and converging projectiles instead of raising shields on a timer.
+- Weapon analysis uses vanilla weapon/kinetic components, so Maces, spears, and future component-based weapons are treated as real threats rather than ignored.
+- Soldiers predict overhead Mace/smash impact positions and leave the blast column instead of standing directly below elevated attackers.
+- Soldiers scan for End Crystals, retreat outside their 12-block damage reach, and Rangers shoot safely exposed crystals when allies are clear.
 - Every melee class predicts moving targets and attempts telegraphed jump criticals; Brutes lunge for 1.5× crits while other classes use lighter 1.25× crits.
 - Pursuit leads a target's current velocity and continues tracking during attack windups, making simple circle-strafing less effective without returning to extreme speed.
-- Rangers consume finite arrows, hold elevated perches, and build three- to six-layer firing towers by tier before shooting down.
+- Rangers consume finite arrows, build one owned tower per engagement, and hold that perch even when a target moves far away or briefly leaves targeting range.
+- Ground Rangers detect surviving frontline allies; once the melee line is gone they stop endless kiting, advance, shoot from a stand, and use backup melee up close.
 - Tier-4/5/6 Trappers receive 5/8/12 webs with faster high-tier trap cooldowns while refusing placements near allies.
 - Some soldiers carry and intelligently drink strength, swiftness, fire-resistance, or healing potions. Buff-potion odds are capped at 20%.
 - Tier-4/5 soldiers always carry exactly one healing option; wounded soldiers retreat briefly, then consume even if an escape path fails or an enemy keeps pressure on them.
@@ -109,7 +113,7 @@ Soldier-placed cobblestone and planks are cleaned up automatically. Blocks delib
 The distributable mod is written to:
 
 ```text
-build/libs/battle-soldiers-1.4.0.jar
+build/libs/battle-soldiers-1.5.0.jar
 ```
 
 For local development:
