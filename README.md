@@ -15,7 +15,7 @@ Install the mod and Fabric API in the `mods` folder. Multiplayer servers and con
 
 ## Download
 
-[Download Battle Soldiers 1.3.0](releases/battle-soldiers-1.3.0.jar?raw=1)
+[Download Battle Soldiers 1.4.0](releases/battle-soldiers-1.4.0.jar?raw=1)
 
 ## Quick start
 
@@ -39,7 +39,7 @@ This deploys 12 gear-level-3 red soldiers against 12 gear-level-5 blue soldiers.
 
 | Command | Action |
 | --- | --- |
-| `/soldiers <count> <gear>` | Spawn 1–64 training soldiers; gear must be 1–5 |
+| `/soldiers <count> <gear>` | Spawn 1–64 training soldiers; gear must be 1–6 |
 | `/soldiers battle <count-per-team> <red-gear> <blue-gear>` | Spawn two opposing armies |
 | `/soldiers team <training\|red\|blue> <count> <gear>` | Spawn a specific squad |
 | `/soldiers join <training\|red\|blue>` | Join a squad so its soldiers treat you as an ally |
@@ -57,7 +57,7 @@ Commands require game-master permission (cheats in single-player or operator acc
 | Vanguard | 20 | Raises a shield, advances slowly, lowers it for telegraphed sword counters, and switches to an axe against blockers |
 | Brute | 22 | Slow axe fighter with long recoveries and strong descending jump-critical attacks |
 | Ranger | 18 | Keeps distance, strafes while drawing a finite-ammo bow, switches to backup melee up close, and builds cover/towers |
-| Trapper | 20 | Tier-4/5 control class that predicts movement and places a finite supply of cobweb traps |
+| Trapper | 20 | Tier-4+ control class that predicts movement and places a large but finite supply of cobweb traps |
 
 ## Gear levels
 
@@ -66,10 +66,11 @@ Commands require game-master permission (cheats in single-player or operator acc
 | 1 | Wood/leather pool | Basic randomized supplies, all core classes except Trapper |
 | 2 | Stone/chainmail pool | Better shield timing and 5% potion chance |
 | 3 | Iron pool | More Ranger presence, arrows, blocks, and 10% potion chance |
-| 4 | Diamond/iron pool | Trappers unlock with two cobwebs; guaranteed heal, 15% buff-potion and rare totem chance |
-| 5 | Netherite/diamond pool | Three-web Trappers, taller towers, guaranteed heal, 20% buff-potion and low totem chance |
+| 4 | Diamond/iron pool | Trappers unlock with five webs; four-layer towers, guaranteed heal, and rare totems |
+| 5 | Netherite/diamond pool | Eight-web Trappers, five-layer towers, guaranteed heal, and improved supplies |
+| 6 | Fully enchanted netherite | Max combat enchants, 5–7 gaps, 1–2 enchanted gaps, 2–3 totems, 12-web Trappers, and six-layer Ranger towers |
 
-Gear tiers improve equipment and tactical timing—not health. Every tier stays at its class health, and effective movement remains roughly 0.22–0.28. Armor pieces can be missing, downgraded, or worn.
+Gear tiers improve equipment and tactical timing—not health. Every tier stays at its class health, and effective movement remains roughly 0.22–0.29. Tiers 1–5 carry at least 2–3 golden apples; tier 6 is the fully enchanted endgame loadout.
 
 ## AI behavior
 
@@ -78,8 +79,8 @@ Gear tiers improve equipment and tactical timing—not health. Every tier stays 
 - Vanguards react to enemy attack telegraphs, melee posture, charged ranged weapons, and converging projectiles instead of raising shields on a timer.
 - Every melee class predicts moving targets and attempts telegraphed jump criticals; Brutes lunge for 1.5× crits while other classes use lighter 1.25× crits.
 - Pursuit leads a target's current velocity and continues tracking during attack windups, making simple circle-strafing less effective without returning to extreme speed.
-- Rangers consume finite arrows, hold a back line, strafe, build one- to three-layer firing towers, place exposed-position cover, and draw real bows.
-- Tier-4/5 Trappers consume finite cobwebs to trap an enemy's current or predicted next position while refusing placements near allies.
+- Rangers consume finite arrows, hold elevated perches, and build three- to six-layer firing towers by tier before shooting down.
+- Tier-4/5/6 Trappers receive 5/8/12 webs with faster high-tier trap cooldowns while refusing placements near allies.
 - Some soldiers carry and intelligently drink strength, swiftness, fire-resistance, or healing potions. Buff-potion odds are capped at 20%.
 - Tier-4/5 soldiers always carry exactly one healing option; wounded soldiers retreat briefly, then consume even if an escape path fails or an enemy keeps pressure on them.
 - Totem-equipped soldiers use vanilla Totem of Undying mechanics and automatically move a spare shield or totem into the offhand afterward.
@@ -87,6 +88,7 @@ Gear tiers improve equipment and tactical timing—not health. Every tier stays 
 - Soldiers only place blocks for a detected gap, ranged cover, or an elevation step—not randomly. Placed cobblestone/planks are tracked and cleaned up automatically.
 - Equipment, inventory slots, role, squad, cooldowns, and placed-block records persist across saves.
 - Soldiers drop their worn equipment and remaining inventory on death.
+- Soldiers never drop experience orbs, preventing mid-fight Mending repairs.
 - The red and blue squads fight each other. Neutral players can spectate; players who join a squad become valid targets only for the opposing squad.
 - Creative and spectator players are never selected as practice targets.
 
@@ -107,7 +109,7 @@ Soldier-placed cobblestone and planks are cleaned up automatically. Blocks delib
 The distributable mod is written to:
 
 ```text
-build/libs/battle-soldiers-1.3.0.jar
+build/libs/battle-soldiers-1.4.0.jar
 ```
 
 For local development:
