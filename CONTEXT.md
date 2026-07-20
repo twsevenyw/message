@@ -21,23 +21,29 @@
 | `releases/battle-soldiers-1.0.0.jar` | Previous prebuilt GitHub-hosted release |
 | `releases/battle-soldiers-1.1.0.jar` | Previous player-like-inventory release |
 | `releases/battle-soldiers-1.2.0.jar` | Previous custom-combat release |
-| `releases/battle-soldiers-1.3.0.jar` | Current reactive-combat GitHub-hosted release |
+| `releases/battle-soldiers-1.3.0.jar` | Previous reactive-combat release |
+| `releases/battle-soldiers-1.4.0.jar` | Current enchanted-tier-six GitHub-hosted release |
 
 ## Current State
 - Complete implementation is on `cursor/battle-soldiers-mod-1918`; draft PR #1 targets `main`.
-- `/soldiers <count> <gear 1-5>` and advanced battle/team/join/clear/status subcommands are implemented.
-- Version 1.3.0 uses a custom `Monster` entity and unified combat state machine; no vanilla zombie, melee, or bow combat goals remain.
+- `/soldiers <count> <gear 1-6>` and advanced battle/team/join/clear/status subcommands are implemented.
+- Version 1.4.0 uses a custom `Monster` entity and unified combat state machine; no vanilla zombie, melee, or bow combat goals remain.
 - Four classes are implemented: shield-countering Vanguard, slow jump-crit Brute, tower/cover Ranger, and tier-4/5 cobweb Trapper.
 - Effective class movement is about 0.22–0.28, class health remains 18–22, and pursuit predicts moving targets without returning to extreme speeds.
 - Healing now always transitions from retreat to consumption; tier-4/5 soldiers carry a guaranteed healing option.
 - Shields react to explicit attack telegraphs, charged ranged weapons, and converging projectiles instead of distance timers.
 - Every melee class attempts predictive jump criticals; Brutes use 1.5× and other classes 1.25× total-attack multipliers.
-- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-1.3.0.jar`.
+- Tier 6 has fully enchanted netherite role gear, 5–7 gaps, 1–2 enchanted gaps, and 2–3 totems.
+- All lower tiers carry at least 2–3 gaps; Trappers receive 5/8/12 webs at tiers 4/5/6.
+- Ranger towers scale to 3/3/4/4/5/6 layers and Rangers hold elevated firing perches.
+- Soldiers never drop XP orbs.
+- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-1.4.0.jar`.
 - A downloadable copy is staged at `/opt/cursor/artifacts/battle-soldiers-1.0.0.jar` (SHA-256 `344011d03587c796d13c037b1112eae672c0d950bcb42c1ff0d7107b635e43e1`).
 - Version 1.1.0 is committed at `releases/battle-soldiers-1.1.0.jar` with SHA-256 `627ebf2259d9be25a4a844b36646a9a43b1997065cb2b4b4ed1b154a1c80f6ab`.
 - Version 1.2.0 is committed at `releases/battle-soldiers-1.2.0.jar` with SHA-256 `5e7d3ba81067e7af9f2db521dc79f3d4513e6928c81da8b85ebfd17eb37c5363`.
 - Version 1.3.0 is committed at `releases/battle-soldiers-1.3.0.jar` with SHA-256 `f360abdbde95f14494550d20b34397f5be5e15c4be8d325496caf6949f010aa1`.
-- Dedicated-server checks passed for pressured healing, predictive pursuit, all classes, custom kills, 22 reactive shield raises and 10 landed crits in a 40-soldier telemetry battle, cleanup, persistence, and drops.
+- Version 1.4.0 is committed at `releases/battle-soldiers-1.4.0.jar` with SHA-256 `420a767977a5758a234aa447f453ccfa786dc840964d83d9b6ea304fdc630be0`.
+- Dedicated-server checks passed for tier-6 enchantments/supplies, normal 2-gap minimum, zero XP, high Ranger placements, increased web usage, reactive shields, crits, cleanup, persistence, and drops.
 - All source, documentation, Gradle wrapper files, and release JARs are committed and synchronized to the GitHub feature branch.
 - The repository's pre-existing Python encryption/web-app files remain outside the Gradle source sets and are unchanged.
 
@@ -59,6 +65,9 @@
 | 2026-07-20 | Trigger shields from concrete threat sensors and enemy attack telegraphs. | Distance-based guard cycles looked random and routinely ended before the actual attack window. |
 | 2026-07-20 | Predict moving targets during pursuit/windups and raise movement to 0.22–0.28. | Current-position pathing plus 0.19–0.24 movement was easy to circle-strafe and dodge. |
 | 2026-07-20 | Guarantee high-tier healing and force retreat to end in consumption. | A continuation off-by-one stopped healing under pressure one tick before item use began. |
+| 2026-07-20 | Add tier 6 as an enchanted endgame loadout without adding more health. | The user requested a materially stronger tier; enchantments, supplies, towers, webs, and timing provide it without another stat-sponge HP increase. |
+| 2026-07-20 | Disable all soldier XP drops. | XP orbs repaired player Mending gear mid-fight and distorted practice-battle balance. |
+| 2026-07-20 | Raise Ranger towers and Trapper web budgets substantially. | Short towers were still melee-reachable and 2–3 webs expired too quickly in serious battles. |
 
 ## Agent Activity Log
 | Date | Agent | What Changed |
@@ -71,3 +80,4 @@
 | 2026-07-19 | GPT-5.6 Sol | Replaced vanilla combat inheritance with the 1.2.0 custom four-class state machine, rebalanced stats, runtime-tested class tactics, and packaged the new release. |
 | 2026-07-19 | GPT-5.6 Sol | Verified the complete 1.2.0 project and release history are committed and pushed to GitHub. |
 | 2026-07-20 | GPT-5.6 Sol | Shipped 1.3.0 with guaranteed pressured healing, reactive shields, predictive interception, class-wide jump crits, telemetry validation, and a rebuilt artifact. |
+| 2026-07-20 | GPT-5.6 Sol | Added 1.4.0 tier 6, deterministic enchantments, expanded gaps/totems/webs, taller Ranger perches, zero XP, runtime validation, and a rebuilt artifact. |
