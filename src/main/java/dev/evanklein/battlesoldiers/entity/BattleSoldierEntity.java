@@ -868,8 +868,9 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		if (this.combatRole != CombatRole.RANGER || this.rangerPerchTop == null) {
 			return false;
 		}
+		BlockState perchState = this.level().getBlockState(this.rangerPerchTop);
 		if (!this.placedBlocks.contains(this.rangerPerchTop.asLong())
-				|| !this.level().getBlockState(this.rangerPerchTop).blocksMotion()) {
+				|| !perchState.isCollisionShapeFullBlock(this.level(), this.rangerPerchTop)) {
 			return false;
 		}
 		double centerX = this.rangerPerchTop.getX() + 0.5;
