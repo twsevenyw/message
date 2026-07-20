@@ -277,16 +277,19 @@ public final class SoldierCombatGoal extends Goal {
 
 	private boolean shouldRaiseShield(LivingEntity target) {
 		boolean incomingProjectile = this.soldier.hasIncomingProjectile(10.0);
+		boolean meleeAttackImminent = this.isMeleeAttackImminent(target);
 		if (this.soldier.isUsingItem()
 				|| !this.soldier.getOffhandItem().is(Items.SHIELD)
 				|| this.attackWindup > 0) {
 			return false;
 		}
-		if (this.shieldCooldown > 0 && !incomingProjectile) {
+		if (this.shieldCooldown > 0
+				&& !incomingProjectile
+				&& !(meleeAttackImminent && this.shieldCooldown <= 8)) {
 			return false;
 		}
 		return incomingProjectile
-				|| this.isMeleeAttackImminent(target)
+				|| meleeAttackImminent
 				|| this.isRangedReleaseImminent(target);
 	}
 
@@ -323,8 +326,13 @@ public final class SoldierCombatGoal extends Goal {
 
 	private boolean isMeleeAttackImminent(LivingEntity target) {
 		if (!this.soldier.getSensing().hasLineOfSight(target)
-				|| !this.isFacingSoldier(target, 0.30)
-				|| this.soldier.distanceToSqr(target) > 16.0) {
+				|| this.soldier.distanceToSqr(target) > 25.0) {
+			return false;
+		}
+		if (target instanceof BattleSoldierEntity battleSoldier) {
+			return battleSoldier.isAttackTelegraphed();
+		}
+		if (!this.isFacingSoldier(target, 0.30)) {
 			return false;
 		}
 		if (target.isUsingItem()) {
@@ -338,9 +346,6 @@ public final class SoldierCombatGoal extends Goal {
 		}
 		if (target instanceof Player player) {
 			return player.getAttackStrengthScale(0.0F) >= 0.72F;
-		}
-		if (target instanceof BattleSoldierEntity battleSoldier) {
-			return battleSoldier.isAttackTelegraphed();
 		}
 		if (target instanceof Mob mob) {
 			return mob.isAggressive() && (mob.isWithinMeleeAttackRange(this.soldier) || target.swinging);
