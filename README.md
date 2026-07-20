@@ -15,7 +15,7 @@ Install the mod and Fabric API in the `mods` folder. Multiplayer servers and con
 
 ## Download
 
-[Download Battle Soldiers 1.2.0](releases/battle-soldiers-1.2.0.jar?raw=1)
+[Download Battle Soldiers 1.3.0](releases/battle-soldiers-1.3.0.jar?raw=1)
 
 ## Quick start
 
@@ -44,7 +44,7 @@ This deploys 12 gear-level-3 red soldiers against 12 gear-level-5 blue soldiers.
 | `/soldiers team <training\|red\|blue> <count> <gear>` | Spawn a specific squad |
 | `/soldiers join <training\|red\|blue>` | Join a squad so its soldiers treat you as an ally |
 | `/soldiers join none` | Leave soldier squads |
-| `/soldiers status` | Show squad totals, active engagements, and shield users |
+| `/soldiers status` | Show squads, engagements, active/cumulative reactive blocks, and landed criticals |
 | `/soldiers clear` | Remove all loaded soldiers and their tactical blocks |
 | `/soldiers clear <training\|red\|blue>` | Remove one loaded squad |
 
@@ -66,21 +66,22 @@ Commands require game-master permission (cheats in single-player or operator acc
 | 1 | Wood/leather pool | Basic randomized supplies, all core classes except Trapper |
 | 2 | Stone/chainmail pool | Better shield timing and 5% potion chance |
 | 3 | Iron pool | More Ranger presence, arrows, blocks, and 10% potion chance |
-| 4 | Diamond/iron pool | Trappers unlock with two cobwebs; 15% potion and rare totem chance |
-| 5 | Netherite/diamond pool | Three-web Trappers, taller Ranger towers, 20% potion and low totem chance |
+| 4 | Diamond/iron pool | Trappers unlock with two cobwebs; guaranteed heal, 15% buff-potion and rare totem chance |
+| 5 | Netherite/diamond pool | Three-web Trappers, taller towers, guaranteed heal, 20% buff-potion and low totem chance |
 
-Gear tiers improve equipment and tactical timing—not health. Every tier stays at its class health, and effective base movement remains roughly 0.19–0.24. Armor pieces can be missing, downgraded, or worn.
+Gear tiers improve equipment and tactical timing—not health. Every tier stays at its class health, and effective movement remains roughly 0.22–0.28. Armor pieces can be missing, downgraded, or worn.
 
 ## AI behavior
 
 - Every soldier owns a persistent 36-slot inventory containing its actual blocks, arrows, backup weapons, food, golden apples, shields, totems, and potions.
 - A single custom state machine controls pathing, spacing, attack windups, recovery windows, shields, bows, weapon swaps, and class tactics.
-- Vanguards visibly alternate between blocking and punishable attack openings instead of attacking through raised shields.
-- Brutes equip axes and attempt telegraphed airborne critical strikes rather than running continuously into targets.
+- Vanguards react to enemy attack telegraphs, melee posture, charged ranged weapons, and converging projectiles instead of raising shields on a timer.
+- Every melee class predicts moving targets and attempts telegraphed jump criticals; Brutes lunge for 1.5× crits while other classes use lighter 1.25× crits.
+- Pursuit leads a target's current velocity and continues tracking during attack windups, making simple circle-strafing less effective without returning to extreme speed.
 - Rangers consume finite arrows, hold a back line, strafe, build one- to three-layer firing towers, place exposed-position cover, and draw real bows.
 - Tier-4/5 Trappers consume finite cobwebs to trap an enemy's current or predicted next position while refusing placements near allies.
-- Some soldiers carry and intelligently drink strength, swiftness, fire-resistance, or healing potions. Potion odds are capped at 20%.
-- Wounded soldiers retreat before consuming golden apples or healing supplies.
+- Some soldiers carry and intelligently drink strength, swiftness, fire-resistance, or healing potions. Buff-potion odds are capped at 20%.
+- Tier-4/5 soldiers always carry exactly one healing option; wounded soldiers retreat briefly, then consume even if an escape path fails or an enemy keeps pressure on them.
 - Totem-equipped soldiers use vanilla Totem of Undying mechanics and automatically move a spare shield or totem into the offhand afterward.
 - Soldiers detect opponents behind nearby obstacles, approach the reachable face, show block-breaking cracks, and breach blocks according to gear capability.
 - Soldiers only place blocks for a detected gap, ranged cover, or an elevation step—not randomly. Placed cobblestone/planks are tracked and cleaned up automatically.
@@ -106,7 +107,7 @@ Soldier-placed cobblestone and planks are cleaned up automatically. Blocks delib
 The distributable mod is written to:
 
 ```text
-build/libs/battle-soldiers-1.2.0.jar
+build/libs/battle-soldiers-1.3.0.jar
 ```
 
 For local development:
