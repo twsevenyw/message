@@ -4,13 +4,18 @@ import dev.evanklein.battlesoldiers.battle.CombatRole;
 import dev.evanklein.battlesoldiers.entity.BattleSoldierEntity;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.item.BowItem;
+import net.minecraft.world.item.CrossbowItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.TridentItem;
 import net.minecraft.world.item.component.BlocksAttacks;
 import net.minecraft.world.phys.Vec3;
 
@@ -29,6 +34,8 @@ public final class SoldierCombatGoal extends Goal {
 	private boolean critJump;
 	private boolean critAirborne;
 	private int critTimeout;
+	private int critCooldown;
+	private CombatRole criticalRole = CombatRole.BRUTE;
 
 	public SoldierCombatGoal(BattleSoldierEntity soldier) {
 		this.soldier = soldier;
@@ -82,6 +89,14 @@ public final class SoldierCombatGoal extends Goal {
 		if (this.bowCooldown > 0) {
 			this.bowCooldown--;
 		}
+		if (this.critCooldown > 0) {
+			this.critCooldown--;
+		}
+
+		if (this.critJump) {
+			this.tickCriticalJump(target);
+			return;
+		}
 
 		switch (this.soldier.getCombatRole()) {
 			case VANGUARD -> this.tickVanguard(target);
@@ -114,24 +129,6 @@ public final class SoldierCombatGoal extends Goal {
 
 	private void tickBrute(LivingEntity target) {
 		this.soldier.equipAxe();
-		if (this.critJump) {
-			this.tickCriticalJump(target);
-			return;
-		}
-
-		double distance = this.soldier.distanceToSqr(target);
-		if (this.attackCooldown <= 0
-				&& this.attackWindup <= 0
-				&& this.soldier.onGround()
-				&& distance > 1.0
-				&& distance <= 10.0) {
-			this.critJump = true;
-			this.critAirborne = false;
-			this.critTimeout = 16;
-			this.soldier.getNavigation().moveTo(target, 0.95);
-			this.soldier.getJumpControl().jump();
-			return;
-		}
 		this.tickMelee(target, CombatRole.BRUTE);
 	}
 
@@ -165,9 +162,10 @@ public final class SoldierCombatGoal extends Goal {
 				this.soldier.stopUsingItem();
 			}
 			this.soldier.equipBackupMelee();
-			this.retreatFrom(target, 5.0);
-			if (this.soldier.isWithinMeleeAttackRange(target)) {
+			if (distance <= 4.0) {
 				this.tickMelee(target, CombatRole.RANGER);
+			} else {
+				this.retreatFrom(target, 5.0);
 			}
 			return;
 		}
@@ -178,7 +176,7 @@ public final class SoldierCombatGoal extends Goal {
 			if (this.soldier.isUsingItem()) {
 				this.soldier.stopUsingItem();
 			}
-			this.soldier.getNavigation().moveTo(target, 0.85);
+			this.moveToPredicted(target, 0.98, CombatRole.RANGER);
 			return;
 		}
 
@@ -206,8 +204,12 @@ public final class SoldierCombatGoal extends Goal {
 
 	private void tickMelee(LivingEntity target, CombatRole role) {
 		if (this.attackWindup > 0) {
-			this.soldier.getNavigation().stop();
-			this.soldier.getMoveControl().strafe(0.08F, this.strafeClockwise ? 0.28F : -0.28F);
+			if (this.soldier.isWithinMeleeAttackRange(target)) {
+				this.soldier.getNavigation().stop();
+				this.soldier.getMoveControl().strafe(0.08F, this.strafeClockwise ? 0.28F : -0.28F);
+			} else {
+				this.steerTowardPrediction(target, 0.82);
+			}
 			if (--this.attackWindup == 0) {
 				this.performMeleeAttack(target, role);
 			}
@@ -225,16 +227,26 @@ public final class SoldierCombatGoal extends Goal {
 			return;
 		}
 
-		if (this.pathCooldown-- <= 0) {
-			this.soldier.getNavigation().moveTo(target, role == CombatRole.BRUTE ? 0.92 : 1.0);
-			this.pathCooldown = 6 + this.soldier.getRandom().nextInt(6);
+		if (this.shouldAttemptCritical(target, role)) {
+			this.startCriticalJump(target, role);
+			return;
+		}
+
+		if (this.pathCooldown-- <= 0 || this.soldier.getNavigation().isDone()) {
+			double speed = switch (role) {
+				case VANGUARD -> 1.08;
+				case BRUTE -> 1.02;
+				case RANGER -> 1.05;
+				case TRAPPER -> 1.10;
+			};
+			this.moveToPredicted(target, speed, role);
+			this.pathCooldown = 3 + this.soldier.getRandom().nextInt(3);
 		}
 		this.soldier.setSprinting(false);
 	}
 
 	private void performMeleeAttack(LivingEntity target, CombatRole role) {
-		boolean criticalReach = role == CombatRole.BRUTE
-				&& this.critJump
+		boolean criticalReach = this.critJump
 				&& this.soldier.distanceToSqr(target) <= 4.0;
 		if (!this.soldier.isWithinMeleeAttackRange(target) && !criticalReach) {
 			this.attackCooldown = 8;
@@ -255,19 +267,23 @@ public final class SoldierCombatGoal extends Goal {
 		this.attackCooldown = this.attackRecoveryTicks(role);
 		if (role == CombatRole.VANGUARD) {
 			this.soldier.equipSword();
-			this.shieldCooldown = Math.max(24, 64 - this.soldier.getGearLevel().id() * 4);
+			this.shieldCooldown = Math.max(18, 50 - this.soldier.getGearLevel().id() * 4);
 		}
 	}
 
 	private boolean shouldRaiseShield(LivingEntity target) {
-		if (this.shieldCooldown > 0
-				|| this.soldier.isUsingItem()
+		boolean incomingProjectile = this.soldier.hasIncomingProjectile(10.0);
+		if (this.soldier.isUsingItem()
 				|| !this.soldier.getOffhandItem().is(Items.SHIELD)
 				|| this.attackWindup > 0) {
 			return false;
 		}
-		double distance = this.soldier.distanceToSqr(target);
-		return distance <= 64.0 || (this.soldier.isRangedThreat(target) && distance <= 196.0);
+		if (this.shieldCooldown > 0 && !incomingProjectile) {
+			return false;
+		}
+		return incomingProjectile
+				|| this.isMeleeAttackImminent(target)
+				|| this.isRangedReleaseImminent(target);
 	}
 
 	private void beginShield() {
@@ -279,7 +295,7 @@ public final class SoldierCombatGoal extends Goal {
 		this.soldier.getLookControl().setLookAt(target, 50.0F, 50.0F);
 		double distance = this.soldier.distanceToSqr(target);
 		if (distance > 10.0) {
-			this.soldier.getNavigation().moveTo(target, 0.55);
+			this.moveToPredicted(target, 0.72, CombatRole.VANGUARD);
 		} else {
 			this.soldier.getNavigation().stop();
 		}
@@ -289,7 +305,7 @@ public final class SoldierCombatGoal extends Goal {
 		}
 		if (--this.shieldTicks <= 0) {
 			this.lowerShield();
-			this.shieldCooldown = Math.max(24, 64 - this.soldier.getGearLevel().id() * 4);
+			this.shieldCooldown = Math.max(18, 50 - this.soldier.getGearLevel().id() * 4);
 		}
 	}
 
@@ -300,32 +316,170 @@ public final class SoldierCombatGoal extends Goal {
 		this.shieldTicks = 0;
 	}
 
+	private boolean isMeleeAttackImminent(LivingEntity target) {
+		if (!this.soldier.getSensing().hasLineOfSight(target)
+				|| !this.isFacingSoldier(target, 0.30)
+				|| this.soldier.distanceToSqr(target) > 16.0) {
+			return false;
+		}
+		if (target.isUsingItem()) {
+			ItemStack used = target.getUseItem();
+			if (used.is(Items.BOW)
+					|| used.is(Items.CROSSBOW)
+					|| used.is(Items.TRIDENT)
+					|| used.is(Items.SHIELD)) {
+				return false;
+			}
+		}
+		if (target instanceof Player player) {
+			return player.getAttackStrengthScale(0.0F) >= 0.72F;
+		}
+		if (target instanceof Mob mob) {
+			return mob.isAggressive() && (mob.isWithinMeleeAttackRange(this.soldier) || target.swinging);
+		}
+		return target.swinging;
+	}
+
+	private boolean isRangedReleaseImminent(LivingEntity target) {
+		if (!this.soldier.getSensing().hasLineOfSight(target) || !this.isFacingSoldier(target, 0.24)) {
+			return false;
+		}
+
+		if (target.isUsingItem()) {
+			ItemStack used = target.getUseItem();
+			int chargeTicks = target.getTicksUsingItem();
+			if (used.is(Items.BOW) && chargeTicks >= BowItem.MAX_DRAW_DURATION - 8) {
+				return true;
+			}
+			if (used.is(Items.CROSSBOW)
+					&& chargeTicks >= CrossbowItem.getChargeDuration(used, target) - 4) {
+				return true;
+			}
+			if (used.is(Items.TRIDENT) && chargeTicks >= TridentItem.THROW_THRESHOLD_TIME - 3) {
+				return true;
+			}
+		}
+		return CrossbowItem.isCharged(target.getMainHandItem())
+				|| CrossbowItem.isCharged(target.getOffhandItem());
+	}
+
+	private boolean isFacingSoldier(LivingEntity target, double minimumDot) {
+		Vec3 toSoldier = this.soldier.getEyePosition().subtract(target.getEyePosition());
+		if (toSoldier.lengthSqr() < 0.001) {
+			return true;
+		}
+		return target.getViewVector(1.0F).normalize().dot(toSoldier.normalize()) >= minimumDot;
+	}
+
 	private void tickCriticalJump(LivingEntity target) {
 		this.soldier.getLookControl().setLookAt(target, 45.0F, 45.0F);
-		this.soldier.getNavigation().moveTo(target, 0.90);
+		this.steerTowardPrediction(target, 0.90);
 		if (!this.soldier.onGround()) {
 			this.critAirborne = true;
 		}
-		boolean descending = this.critAirborne && this.soldier.getDeltaMovement().y < 0.0;
+		boolean descending = this.critAirborne
+				&& (this.soldier.fallDistance > 0.05F || this.soldier.getDeltaMovement().y < 0.0);
 		if (descending && this.soldier.distanceToSqr(target) <= 4.0) {
-			this.soldier.markCriticalAttack();
-			this.performMeleeAttack(target, CombatRole.BRUTE);
+			double multiplier = this.criticalRole == CombatRole.BRUTE ? 1.5 : 1.25;
+			this.soldier.markCriticalAttack(multiplier);
+			this.performMeleeAttack(target, this.criticalRole);
 			this.critJump = false;
+			this.critCooldown = this.criticalRole == CombatRole.BRUTE ? 30 : 55;
 			return;
 		}
 		if (--this.critTimeout <= 0 || (this.critAirborne && this.soldier.onGround())) {
 			this.critJump = false;
-			this.attackCooldown = 12;
+			this.attackCooldown = 6;
+			this.critCooldown = 24;
 		}
 	}
 
 	private void retreatFrom(LivingEntity target, double distance) {
-		Vec3 away = this.soldier.position().subtract(target.position());
+		Vec3 predictedTarget = target.position().add(target.getDeltaMovement().scale(4.0));
+		Vec3 difference = this.soldier.position().subtract(predictedTarget);
+		Vec3 away = new Vec3(difference.x, 0.0, difference.z);
 		if (away.horizontalDistanceSqr() < 0.01) {
 			away = new Vec3(1.0, 0.0, 0.0);
 		}
 		Vec3 destination = this.soldier.position().add(away.normalize().scale(distance));
-		this.soldier.getNavigation().moveTo(destination.x, destination.y, destination.z, 0.95);
+		this.soldier.getNavigation().moveTo(destination.x, destination.y, destination.z, 1.08);
+	}
+
+	private boolean shouldAttemptCritical(LivingEntity target, CombatRole role) {
+		if (this.critCooldown > 0
+				|| this.attackCooldown > 0
+				|| this.attackWindup > 0
+				|| !this.soldier.onGround()
+				|| this.soldier.isInWater()
+				|| this.soldier.isUsingItem()) {
+			return false;
+		}
+		double distance = this.soldier.distanceToSqr(target);
+		if (distance <= 1.0 || distance > 11.0) {
+			return false;
+		}
+		int attemptRate = switch (role) {
+			case BRUTE -> 1;
+			case TRAPPER -> 7;
+			case RANGER -> 10;
+			case VANGUARD -> 16;
+		};
+		return this.soldier.getRandom().nextInt(attemptRate) == 0;
+	}
+
+	private void startCriticalJump(LivingEntity target, CombatRole role) {
+		this.critJump = true;
+		this.critAirborne = false;
+		this.critTimeout = 14;
+		this.criticalRole = role;
+		this.attackWindup = 0;
+		this.soldier.getNavigation().stop();
+		this.soldier.setSprinting(false);
+
+		Vec3 predictedTarget = target.position().add(target.getDeltaMovement().scale(3.0));
+		Vec3 difference = predictedTarget.subtract(this.soldier.position());
+		Vec3 horizontal = new Vec3(difference.x, 0.0, difference.z);
+		if (horizontal.lengthSqr() > 0.01) {
+			double lunge = role == CombatRole.BRUTE ? 0.50 : 0.35;
+			Vec3 current = this.soldier.getDeltaMovement();
+			Vec3 impulse = horizontal.normalize().scale(lunge);
+			this.soldier.setDeltaMovement(current.x + impulse.x, current.y, current.z + impulse.z);
+		}
+		this.soldier.getJumpControl().jump();
+	}
+
+	private void moveToPredicted(LivingEntity target, double speed, CombatRole role) {
+		Vec3 predicted = this.predictTargetPosition(target, speed, role);
+		this.soldier.getNavigation().moveTo(predicted.x, predicted.y, predicted.z, speed);
+	}
+
+	private void steerTowardPrediction(LivingEntity target, double speed) {
+		Vec3 predicted = this.predictTargetPosition(target, speed, this.soldier.getCombatRole());
+		this.soldier.getMoveControl().setWantedPosition(predicted.x, predicted.y, predicted.z, speed);
+	}
+
+	private Vec3 predictTargetPosition(LivingEntity target, double speed, CombatRole role) {
+		Vec3 targetPosition = target.position();
+		Vec3 velocity = target.getDeltaMovement();
+		double horizontalDistance = this.soldier.position().subtract(targetPosition).horizontalDistance();
+		double movementSpeed = Math.max(
+				0.08,
+				this.soldier.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED)
+						* speed
+		);
+		double leadTicks = Mth.clamp(horizontalDistance / movementSpeed, 2.0, 8.0);
+		double overshootCap = switch (role) {
+			case VANGUARD -> 1.45;
+			case BRUTE -> 1.90;
+			case RANGER -> 1.60;
+			case TRAPPER -> 1.70;
+		};
+		Vec3 offset = new Vec3(velocity.x, 0.0, velocity.z).scale(leadTicks);
+		double offsetLength = offset.horizontalDistance();
+		if (offsetLength > overshootCap) {
+			offset = offset.scale(overshootCap / offsetLength);
+		}
+		return targetPosition.add(offset);
 	}
 
 	private int attackWindupTicks(CombatRole role) {

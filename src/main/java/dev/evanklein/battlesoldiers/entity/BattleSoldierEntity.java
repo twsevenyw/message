@@ -81,7 +81,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	private GearLevel gearLevel = GearLevel.ONE;
 	private CombatRole combatRole = CombatRole.VANGUARD;
 	private boolean initialized;
-	private boolean criticalAttackPending;
+	private double criticalAttackMultiplier = 1.0;
 	private int consumableCooldown;
 	private int preparedConsumableSlot = NO_SLOT;
 	private int rangerTowerCooldown;
@@ -213,22 +213,31 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		this.addToInventory(new ItemStack(Items.COBBLESTONE, cobblestone));
 		this.addToInventory(new ItemStack(Items.OAK_PLANKS, Math.max(1, blockCount - cobblestone)));
 
-		float appleChance = 0.10F + this.gearLevel.id() * 0.05F;
-		if (this.getRandom().nextFloat() < appleChance) {
-			this.addToInventory(new ItemStack(Items.GOLDEN_APPLE));
+		float healingChance = switch (this.gearLevel) {
+			case ONE -> 0.35F;
+			case TWO -> 0.50F;
+			case THREE -> 0.70F;
+			case FOUR, FIVE -> 1.0F;
+		};
+		if (this.getRandom().nextFloat() < healingChance) {
+			if (this.getRandom().nextBoolean()) {
+				this.addToInventory(new ItemStack(Items.GOLDEN_APPLE));
+			} else {
+				this.addToInventory(PotionContents.createItemStack(Items.POTION, Potions.HEALING));
+			}
 		}
 		this.addToInventory(new ItemStack(Items.COOKED_BEEF, 2 + this.getRandom().nextInt(3 + this.gearLevel.id())));
 
 		boolean carriesShield = this.combatRole == CombatRole.VANGUARD
 				&& this.getRandom().nextFloat() < this.gearLevel.shieldChance();
 		boolean carriesTotem = this.getRandom().nextFloat() < this.gearLevel.totemChance();
-		if (carriesTotem) {
-			this.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.TOTEM_OF_UNDYING));
-			if (carriesShield) {
-				this.addToInventory(new ItemStack(Items.SHIELD));
-			}
-		} else if (carriesShield) {
+		if (carriesShield) {
 			this.setItemSlot(EquipmentSlot.OFFHAND, this.randomizedStack(Items.SHIELD));
+			if (carriesTotem) {
+				this.addToInventory(new ItemStack(Items.TOTEM_OF_UNDYING));
+			}
+		} else if (carriesTotem) {
+			this.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.TOTEM_OF_UNDYING));
 		}
 		this.addRandomPotions();
 
@@ -313,10 +322,9 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 			case VANGUARD, TRAPPER -> 20.0;
 		};
 		double classMovement = this.gearLevel.movementSpeed() + switch (this.combatRole) {
-			case BRUTE -> -0.030;
-			case RANGER -> -0.010;
-			case TRAPPER -> -0.005;
-			case VANGUARD -> 0.0;
+			case BRUTE -> -0.015;
+			case RANGER, VANGUARD -> 0.0;
+			case TRAPPER -> 0.005;
 		};
 		if (maxHealth != null) {
 			maxHealth.setBaseValue(classHealth);
@@ -405,6 +413,43 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 				|| target.isHolding(Items.TRIDENT);
 	}
 
+	public boolean hasIncomingProjectile(double radius) {
+		if (!(this.level() instanceof ServerLevel level)) {
+			return false;
+		}
+
+		AABB searchArea = this.getBoundingBox().inflate(radius);
+		return !level.getEntitiesOfClass(Projectile.class, searchArea, projectile -> {
+			if (projectile.isRemoved() || projectile.getDeltaMovement().lengthSqr() < 1.0E-4) {
+				return false;
+			}
+
+			Entity owner = projectile.getOwner();
+			if (owner == this || owner != null && this.isAlliedTo(owner)) {
+				return false;
+			}
+			if (owner instanceof LivingEntity livingOwner
+					&& (livingOwner instanceof Player || livingOwner instanceof BattleSoldierEntity)
+					&& !this.canAttack(livingOwner)) {
+				return false;
+			}
+
+			Vec3 toSoldier = this.getEyePosition().subtract(projectile.position());
+			double distance = toSoldier.length();
+			if (distance < 0.001) {
+				return true;
+			}
+			double convergence = projectile.getDeltaMovement().normalize().dot(toSoldier.scale(1.0 / distance));
+			if (convergence < 0.68) {
+				return false;
+			}
+
+			double speed = projectile.getDeltaMovement().length();
+			double ticksToImpact = distance / Math.max(0.05, speed);
+			return ticksToImpact <= 12.0;
+		}).isEmpty();
+	}
+
 	@Override
 	public void performRangedAttack(LivingEntity target, float power) {
 		if (!(this.level() instanceof ServerLevel level)) {
@@ -482,24 +527,26 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		return this.getMainHandItem().is(this.gearLevel.axeWeapon());
 	}
 
-	public void markCriticalAttack() {
-		this.criticalAttackPending = true;
+	public void markCriticalAttack(double multiplier) {
+		this.criticalAttackMultiplier = Math.max(1.0, multiplier);
 	}
 
 	@Override
 	public boolean doHurtTarget(ServerLevel level, Entity target) {
-		if (!this.criticalAttackPending) {
+		if (this.criticalAttackMultiplier <= 1.0) {
 			return super.doHurtTarget(level, target);
 		}
 
-		this.criticalAttackPending = false;
+		double multiplier = this.criticalAttackMultiplier;
+		this.criticalAttackMultiplier = 1.0;
 		AttributeInstance attackDamage = this.getAttribute(Attributes.ATTACK_DAMAGE);
 		if (attackDamage == null) {
 			return super.doHurtTarget(level, target);
 		}
 
 		double baseDamage = attackDamage.getBaseValue();
-		attackDamage.setBaseValue(baseDamage * 1.5);
+		double totalDamage = attackDamage.getValue();
+		attackDamage.setBaseValue(baseDamage + totalDamage * (multiplier - 1.0));
 		try {
 			return super.doHurtTarget(level, target);
 		} finally {
@@ -512,13 +559,10 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 			return false;
 		}
 
-		if (this.getHealth() <= this.getMaxHealth() * 0.5F) {
+		if (this.getHealth() <= this.getMaxHealth() * 0.6F) {
 			this.preparedConsumableSlot = this.findInventorySlot(stack -> stack.is(Items.GOLDEN_APPLE));
 			if (this.preparedConsumableSlot == NO_SLOT) {
 				this.preparedConsumableSlot = this.findPotionSlot(Potions.HEALING);
-			}
-			if (this.preparedConsumableSlot == NO_SLOT) {
-				this.preparedConsumableSlot = this.findPotionSlot(Potions.REGENERATION);
 			}
 		}
 
@@ -603,6 +647,16 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 			if (totemSlot != NO_SLOT) {
 				this.addToInventory(this.getOffhandItem().copy());
 				this.setItemSlot(EquipmentSlot.OFFHAND, this.soldierInventory.removeItem(totemSlot, 1));
+				return;
+			}
+		}
+
+		if (this.getHealth() > this.getMaxHealth() * 0.3F
+				&& this.getOffhandItem().is(Items.TOTEM_OF_UNDYING)) {
+			int shieldSlot = this.findInventorySlot(stack -> stack.is(Items.SHIELD));
+			if (shieldSlot != NO_SLOT) {
+				this.addToInventory(this.getOffhandItem().copy());
+				this.setItemSlot(EquipmentSlot.OFFHAND, this.soldierInventory.removeItemNoUpdate(shieldSlot));
 				return;
 			}
 		}

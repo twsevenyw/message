@@ -8,27 +8,27 @@ public enum GearLevel {
 	ONE(
 			1, Items.WOODEN_SWORD,
 			Items.LEATHER_HELMET, Items.LEATHER_CHESTPLATE, Items.LEATHER_LEGGINGS, Items.LEATHER_BOOTS,
-			20.0, 0.220, 1, 5, 2.0F, 0.75F, false
+			20.0, 0.235, 1, 5, 2.0F, 0.75F, false
 	),
 	TWO(
 			2, Items.STONE_SWORD,
 			Items.CHAINMAIL_HELMET, Items.CHAINMAIL_CHESTPLATE, Items.CHAINMAIL_LEGGINGS, Items.CHAINMAIL_BOOTS,
-			20.0, 0.225, 1, 7, 4.0F, 1.0F, true
+			20.0, 0.245, 1, 7, 4.0F, 1.0F, true
 	),
 	THREE(
 			3, Items.IRON_SWORD,
 			Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS,
-			20.0, 0.230, 1, 9, 8.0F, 1.25F, true
+			20.0, 0.255, 1, 9, 8.0F, 1.25F, true
 	),
 	FOUR(
 			4, Items.DIAMOND_SWORD,
 			Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS,
-			20.0, 0.235, 1, 11, 25.0F, 1.55F, true
+			20.0, 0.265, 1, 11, 25.0F, 1.55F, true
 	),
 	FIVE(
 			5, Items.NETHERITE_SWORD,
 			Items.NETHERITE_HELMET, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_LEGGINGS, Items.NETHERITE_BOOTS,
-			20.0, 0.240, 1, 13, 55.0F, 1.9F, true
+			20.0, 0.275, 1, 13, 55.0F, 1.9F, true
 	);
 
 	private final int id;
