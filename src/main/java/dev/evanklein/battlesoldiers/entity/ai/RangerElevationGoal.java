@@ -25,6 +25,10 @@ public final class RangerElevationGoal extends Goal {
 	@Override
 	public boolean canUse() {
 		LivingEntity target = this.soldier.getTarget();
+		int towerLayers = this.desiredTowerLayers();
+		double deltaX = target == null ? 0.0 : target.getX() - this.soldier.getX();
+		double deltaZ = target == null ? 0.0 : target.getZ() - this.soldier.getZ();
+		double horizontalDistance = deltaX * deltaX + deltaZ * deltaZ;
 		return this.soldier.getCombatRole() == CombatRole.RANGER
 				&& target != null
 				&& target.isAlive()
@@ -32,9 +36,9 @@ public final class RangerElevationGoal extends Goal {
 				&& this.soldier.canBuild()
 				&& this.soldier.onGround()
 				&& !this.soldier.isInWater()
-				&& this.soldier.distanceToSqr(target) <= 100.0
-				&& this.soldier.getY() - target.getY() < 2.0
-				&& this.hasHeadroom();
+				&& horizontalDistance <= 400.0
+				&& this.soldier.getY() - target.getY() < towerLayers - 0.5
+				&& this.hasHeadroom(towerLayers);
 	}
 
 	@Override
@@ -43,15 +47,13 @@ public final class RangerElevationGoal extends Goal {
 		return target != null
 				&& target.isAlive()
 				&& this.placedLayers < this.desiredLayers
-				&& this.timeout < 80
+				&& this.timeout < 30 + 25 * this.desiredLayers
 				&& this.soldier.canBuild();
 	}
 
 	@Override
 	public void start() {
-		this.desiredLayers = this.soldier.getGearLevel().id() >= 5
-				? 3
-				: this.soldier.getGearLevel().id() >= 3 ? 2 : 1;
+		this.desiredLayers = this.desiredTowerLayers();
 		this.placedLayers = 0;
 		this.timeout = 0;
 		this.jumpRequested = false;
@@ -86,14 +88,16 @@ public final class RangerElevationGoal extends Goal {
 			}
 		}
 
-		if (this.jumpRequested && this.placedThisJump && this.soldier.onGround()) {
+		if (this.jumpRequested && this.soldier.onGround()) {
 			this.jumpRequested = false;
 		}
 	}
 
 	@Override
 	public void stop() {
-		this.soldier.setRangerTowerCooldown(this.placedLayers > 0 ? 180 : 90);
+		boolean completed = this.placedLayers >= this.desiredLayers;
+		int fullCooldown = Math.max(100, 240 - this.soldier.getGearLevel().id() * 20);
+		this.soldier.setRangerTowerCooldown(completed ? fullCooldown : this.placedLayers > 0 ? 40 : 20);
 		this.soldier.getNavigation().stop();
 	}
 
@@ -102,9 +106,18 @@ public final class RangerElevationGoal extends Goal {
 		return true;
 	}
 
-	private boolean hasHeadroom() {
+	private int desiredTowerLayers() {
+		return switch (this.soldier.getGearLevel()) {
+			case ONE, TWO -> 3;
+			case THREE, FOUR -> 4;
+			case FIVE -> 5;
+			case SIX -> 6;
+		};
+	}
+
+	private boolean hasHeadroom(int towerLayers) {
 		BlockPos origin = this.soldier.blockPosition();
-		for (int height = 1; height <= 5; height++) {
+		for (int height = 1; height <= towerLayers + 2; height++) {
 			if (!this.soldier.level().getBlockState(origin.above(height)).isAir()) {
 				return false;
 			}

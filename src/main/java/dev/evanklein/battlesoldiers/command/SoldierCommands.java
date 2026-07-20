@@ -38,7 +38,7 @@ public final class SoldierCommands {
 						Commands.literal("soldiers")
 								.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 								.then(Commands.argument("count", IntegerArgumentType.integer(1, MAX_SINGLE_SPAWN))
-										.then(Commands.argument("gear", IntegerArgumentType.integer(1, 5))
+										.then(Commands.argument("gear", IntegerArgumentType.integer(1, 6))
 												.executes(context -> spawnTraining(
 														context,
 														IntegerArgumentType.getInteger(context, "count"),
@@ -46,8 +46,8 @@ public final class SoldierCommands {
 												))))
 								.then(Commands.literal("battle")
 										.then(Commands.argument("count-per-team", IntegerArgumentType.integer(1, MAX_BATTLE_SIDE))
-												.then(Commands.argument("red-gear", IntegerArgumentType.integer(1, 5))
-														.then(Commands.argument("blue-gear", IntegerArgumentType.integer(1, 5))
+												.then(Commands.argument("red-gear", IntegerArgumentType.integer(1, 6))
+														.then(Commands.argument("blue-gear", IntegerArgumentType.integer(1, 6))
 																.executes(SoldierCommands::startBattle)))))
 								.then(Commands.literal("team")
 										.then(teamSpawnCommand(SoldierSquad.TRAINING))
@@ -71,7 +71,7 @@ public final class SoldierCommands {
 	private static LiteralArgumentBuilder<CommandSourceStack> teamSpawnCommand(SoldierSquad squad) {
 		return Commands.literal(squad.id())
 				.then(Commands.argument("count", IntegerArgumentType.integer(1, MAX_SINGLE_SPAWN))
-						.then(Commands.argument("gear", IntegerArgumentType.integer(1, 5))
+						.then(Commands.argument("gear", IntegerArgumentType.integer(1, 6))
 								.executes(context -> spawnSquad(
 										context.getSource(),
 										squad,

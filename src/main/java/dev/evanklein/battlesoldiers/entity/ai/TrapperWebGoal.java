@@ -46,7 +46,11 @@ public final class TrapperWebGoal extends Goal {
 		this.soldier.getNavigation().stop();
 		this.soldier.getLookControl().setLookAt(this.victim, 50.0F, 50.0F);
 		if (this.soldier.placeCobwebTrap(this.trapPosition, this.victim)) {
-			int cooldown = this.soldier.getGearLevel().id() >= 5 ? 120 : 140;
+			int cooldown = switch (this.soldier.getGearLevel()) {
+				case SIX -> 45;
+				case FIVE -> 60;
+				default -> 80;
+			};
 			this.soldier.setWebTrapCooldown(cooldown);
 		}
 	}

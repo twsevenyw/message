@@ -29,6 +29,11 @@ public enum GearLevel {
 			5, Items.NETHERITE_SWORD,
 			Items.NETHERITE_HELMET, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_LEGGINGS, Items.NETHERITE_BOOTS,
 			20.0, 0.275, 1, 13, 55.0F, 1.9F, true
+	),
+	SIX(
+			6, Items.NETHERITE_SWORD,
+			Items.NETHERITE_HELMET, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_LEGGINGS, Items.NETHERITE_BOOTS,
+			20.0, 0.285, 1, 22, 80.0F, 2.2F, true
 	);
 
 	private final int id;
@@ -133,7 +138,7 @@ public enum GearLevel {
 			case TWO -> Items.STONE_AXE;
 			case THREE -> Items.IRON_AXE;
 			case FOUR -> Items.DIAMOND_AXE;
-			case FIVE -> Items.NETHERITE_AXE;
+			case FIVE, SIX -> Items.NETHERITE_AXE;
 		};
 	}
 
@@ -144,6 +149,7 @@ public enum GearLevel {
 			case THREE -> Items.IRON_SWORD;
 			case FOUR -> Items.IRON_SWORD;
 			case FIVE -> Items.DIAMOND_SWORD;
+			case SIX -> Items.NETHERITE_SWORD;
 		};
 	}
 
@@ -154,6 +160,7 @@ public enum GearLevel {
 			case THREE -> armorForMaterial(slot, Items.CHAINMAIL_HELMET, Items.CHAINMAIL_CHESTPLATE, Items.CHAINMAIL_LEGGINGS, Items.CHAINMAIL_BOOTS);
 			case FOUR -> armorForMaterial(slot, Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS);
 			case FIVE -> armorForMaterial(slot, Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS);
+			case SIX -> armorForMaterial(slot, Items.NETHERITE_HELMET, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_LEGGINGS, Items.NETHERITE_BOOTS);
 		};
 	}
 
@@ -168,6 +175,7 @@ public enum GearLevel {
 			case THREE -> 0.30F;
 			case FOUR -> 0.23F;
 			case FIVE -> 0.25F;
+			case SIX -> 0.30F;
 		};
 	}
 
@@ -178,6 +186,7 @@ public enum GearLevel {
 			case THREE -> 0.10F;
 			case FOUR -> 0.15F;
 			case FIVE -> 0.20F;
+			case SIX -> 0.40F;
 		};
 	}
 
@@ -186,6 +195,7 @@ public enum GearLevel {
 			case ONE, TWO, THREE -> 0.0F;
 			case FOUR -> 0.04F;
 			case FIVE -> 0.08F;
+			case SIX -> 1.0F;
 		};
 	}
 
@@ -196,6 +206,7 @@ public enum GearLevel {
 			case THREE -> 0.84F;
 			case FOUR -> 0.90F;
 			case FIVE -> 0.94F;
+			case SIX -> 1.0F;
 		};
 	}
 
@@ -206,6 +217,7 @@ public enum GearLevel {
 			case THREE -> 12;
 			case FOUR -> 14;
 			case FIVE -> 16;
+			case SIX -> 18;
 		};
 	}
 
@@ -216,6 +228,7 @@ public enum GearLevel {
 			case THREE -> 36;
 			case FOUR -> 34;
 			case FIVE -> 32;
+			case SIX -> 28;
 		};
 	}
 
@@ -241,6 +254,7 @@ public enum GearLevel {
 			case 3 -> THREE;
 			case 4 -> FOUR;
 			case 5 -> FIVE;
+			case 6 -> SIX;
 			default -> ONE;
 		};
 	}

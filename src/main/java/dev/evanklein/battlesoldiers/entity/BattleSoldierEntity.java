@@ -16,7 +16,9 @@ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
@@ -54,6 +56,8 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.Potion;
 import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.alchemy.Potions;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.level.block.Blocks;
@@ -175,6 +179,11 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 					: roll < 0.60F
 							? CombatRole.BRUTE
 							: roll < 0.85F ? CombatRole.RANGER : CombatRole.TRAPPER;
+			case SIX -> roll < 0.30F
+					? CombatRole.VANGUARD
+					: roll < 0.55F
+							? CombatRole.BRUTE
+							: roll < 0.85F ? CombatRole.RANGER : CombatRole.TRAPPER;
 		};
 	}
 
@@ -199,7 +208,12 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 			}
 		}
 		if (this.combatRole == CombatRole.TRAPPER) {
-			int webs = this.gearLevel.id() >= 5 ? 3 : 2;
+			int webs = switch (this.gearLevel) {
+				case SIX -> 12;
+				case FIVE -> 8;
+				case FOUR -> 5;
+				default -> 0;
+			};
 			this.addToInventory(new ItemStack(Items.COBWEB, webs));
 			this.addToInventory(this.randomizedStack(this.gearLevel.axeWeapon()));
 		}
@@ -208,7 +222,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		}
 
 		int blockCount = switch (this.combatRole) {
-			case RANGER -> 7 + this.gearLevel.id() * 2;
+			case RANGER -> 10 + this.gearLevel.id() * 2;
 			case TRAPPER -> 4 + this.gearLevel.id();
 			case VANGUARD, BRUTE -> 2 + this.gearLevel.id();
 		};
@@ -216,33 +230,34 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		this.addToInventory(new ItemStack(Items.COBBLESTONE, cobblestone));
 		this.addToInventory(new ItemStack(Items.OAK_PLANKS, Math.max(1, blockCount - cobblestone)));
 
-		float healingChance = switch (this.gearLevel) {
-			case ONE -> 0.35F;
-			case TWO -> 0.50F;
-			case THREE -> 0.70F;
-			case FOUR, FIVE -> 1.0F;
-		};
-		if (this.getRandom().nextFloat() < healingChance) {
-			if (this.getRandom().nextBoolean()) {
-				this.addToInventory(new ItemStack(Items.GOLDEN_APPLE));
-			} else {
-				this.addToInventory(PotionContents.createItemStack(Items.POTION, Potions.HEALING));
-			}
+		int goldenApples = this.gearLevel == GearLevel.SIX
+				? 5 + this.getRandom().nextInt(3)
+				: 2 + this.getRandom().nextInt(2);
+		this.addToInventory(new ItemStack(Items.GOLDEN_APPLE, goldenApples));
+		if (this.gearLevel == GearLevel.SIX) {
+			this.addToInventory(new ItemStack(Items.ENCHANTED_GOLDEN_APPLE, 1 + this.getRandom().nextInt(2)));
 		}
 		this.addToInventory(new ItemStack(Items.COOKED_BEEF, 2 + this.getRandom().nextInt(3 + this.gearLevel.id())));
 
 		boolean carriesShield = this.combatRole == CombatRole.VANGUARD
 				&& this.getRandom().nextFloat() < this.gearLevel.shieldChance();
 		boolean carriesTotem = this.getRandom().nextFloat() < this.gearLevel.totemChance();
+		int totemCount = this.gearLevel == GearLevel.SIX
+				? 2 + this.getRandom().nextInt(2)
+				: carriesTotem ? 1 : 0;
 		if (carriesShield) {
 			this.setItemSlot(EquipmentSlot.OFFHAND, this.randomizedStack(Items.SHIELD));
-			if (carriesTotem) {
+			for (int index = 0; index < totemCount; index++) {
 				this.addToInventory(new ItemStack(Items.TOTEM_OF_UNDYING));
 			}
-		} else if (carriesTotem) {
+		} else if (totemCount > 0) {
 			this.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.TOTEM_OF_UNDYING));
+			for (int index = 1; index < totemCount; index++) {
+				this.addToInventory(new ItemStack(Items.TOTEM_OF_UNDYING));
+			}
 		}
 		this.addRandomPotions();
+		this.applyTierSixEnchantments();
 
 		this.configureGuaranteedDrops();
 		this.setCanPickUpLoot(true);
@@ -252,6 +267,10 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	}
 
 	private void equipRandomArmor(EquipmentSlot slot) {
+		if (this.gearLevel == GearLevel.SIX) {
+			this.setItemSlot(slot, this.randomizedStack(this.gearLevel.armor(slot)));
+			return;
+		}
 		float equipChance = 0.72F + this.gearLevel.id() * 0.05F;
 		if (this.getRandom().nextFloat() > equipChance) {
 			this.setItemSlot(slot, ItemStack.EMPTY);
@@ -277,7 +296,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 			return ItemStack.EMPTY;
 		}
 		ItemStack stack = new ItemStack(item);
-		if (stack.isDamageableItem()) {
+		if (stack.isDamageableItem() && this.gearLevel != GearLevel.SIX) {
 			int wearRange = Math.max(1, stack.getMaxDamage() / 3);
 			stack.setDamageValue(this.getRandom().nextInt(wearRange));
 		}
@@ -300,6 +319,62 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 			default -> Potions.HEALING;
 		};
 		return PotionContents.createItemStack(Items.POTION, potion);
+	}
+
+	private void applyTierSixEnchantments() {
+		if (this.gearLevel != GearLevel.SIX || !(this.level() instanceof ServerLevel level)) {
+			return;
+		}
+
+		HolderLookup.RegistryLookup<Enchantment> enchantments =
+				level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
+		for (EquipmentSlot slot : EnumSet.of(
+				EquipmentSlot.MAINHAND,
+				EquipmentSlot.OFFHAND,
+				EquipmentSlot.HEAD,
+				EquipmentSlot.CHEST,
+				EquipmentSlot.LEGS,
+				EquipmentSlot.FEET
+		)) {
+			this.enchantTierSixStack(this.getItemBySlot(slot), enchantments);
+		}
+		for (int slot = 0; slot < this.soldierInventory.getContainerSize(); slot++) {
+			this.enchantTierSixStack(this.soldierInventory.getItem(slot), enchantments);
+		}
+	}
+
+	private void enchantTierSixStack(
+			ItemStack stack,
+			HolderLookup.RegistryLookup<Enchantment> enchantments
+	) {
+		if (stack.isEmpty() || !stack.isDamageableItem()) {
+			return;
+		}
+
+		Holder<Enchantment> unbreaking = enchantments.getOrThrow(Enchantments.UNBREAKING);
+		this.applyEnchant(stack, unbreaking, 3);
+		if (stack.is(Items.BOW)) {
+			this.applyEnchant(stack, enchantments.getOrThrow(Enchantments.POWER), 5);
+		} else if (stack.is(Items.NETHERITE_SWORD)) {
+			this.applyEnchant(stack, enchantments.getOrThrow(Enchantments.SHARPNESS), 5);
+		} else if (stack.is(Items.NETHERITE_AXE)) {
+			this.applyEnchant(stack, enchantments.getOrThrow(Enchantments.SHARPNESS), 5);
+			this.applyEnchant(stack, enchantments.getOrThrow(Enchantments.EFFICIENCY), 5);
+		} else if (stack.is(Items.NETHERITE_HELMET)
+				|| stack.is(Items.NETHERITE_CHESTPLATE)
+				|| stack.is(Items.NETHERITE_LEGGINGS)
+				|| stack.is(Items.NETHERITE_BOOTS)) {
+			this.applyEnchant(stack, enchantments.getOrThrow(Enchantments.PROTECTION), 4);
+			if (stack.is(Items.NETHERITE_BOOTS)) {
+				this.applyEnchant(stack, enchantments.getOrThrow(Enchantments.FEATHER_FALLING), 4);
+			}
+		}
+	}
+
+	private void applyEnchant(ItemStack stack, Holder<Enchantment> enchantment, int level) {
+		if (enchantment.value().canEnchant(stack)) {
+			stack.enchant(enchantment, level);
+		}
 	}
 
 	private void configureGuaranteedDrops() {
@@ -589,6 +664,10 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		if (this.getHealth() <= this.getMaxHealth() * 0.6F) {
 			this.preparedConsumableSlot = this.findInventorySlot(stack -> stack.is(Items.GOLDEN_APPLE));
 			if (this.preparedConsumableSlot == NO_SLOT) {
+				this.preparedConsumableSlot =
+						this.findInventorySlot(stack -> stack.is(Items.ENCHANTED_GOLDEN_APPLE));
+			}
+			if (this.preparedConsumableSlot == NO_SLOT) {
 				this.preparedConsumableSlot = this.findPotionSlot(Potions.HEALING);
 			}
 		}
@@ -738,7 +817,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 				|| !level.getBlockState(pos).canBeReplaced()
 				|| !Blocks.COBWEB.defaultBlockState().canSurvive(level, pos)
 				|| !this.hasCobwebs()
-				|| this.placedBlocks.size() >= 16) {
+				|| this.placedBlocks.size() >= 48) {
 			return false;
 		}
 
@@ -774,7 +853,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 			return false;
 		}
 		return this.findBuildingBlockSlot() != NO_SLOT
-				&& this.placedBlocks.size() < 12
+				&& this.placedBlocks.size() < 32
 				&& level.getGameRules().get(GameRules.MOB_GRIEFING);
 	}
 
@@ -982,6 +1061,16 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 				this.spawnAtLocation(level, stack);
 			}
 		}
+	}
+
+	@Override
+	public boolean shouldDropExperience() {
+		return false;
+	}
+
+	@Override
+	protected int getBaseExperienceReward(ServerLevel level) {
+		return 0;
 	}
 
 	@Override

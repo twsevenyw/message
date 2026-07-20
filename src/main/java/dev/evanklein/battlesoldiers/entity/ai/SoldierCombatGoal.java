@@ -148,7 +148,10 @@ public final class SoldierCombatGoal extends Goal {
 	}
 
 	private void tickRanger(LivingEntity target) {
-		double distance = this.soldier.distanceToSqr(target);
+		double deltaX = target.getX() - this.soldier.getX();
+		double deltaZ = target.getZ() - this.soldier.getZ();
+		double distance = deltaX * deltaX + deltaZ * deltaZ;
+		boolean safelyElevated = this.soldier.getY() - target.getY() >= 2.5;
 		double preferredMin = 36.0;
 		double preferredMax = Math.pow(10.0 + this.soldier.getGearLevel().id() * 1.6, 2.0);
 
@@ -158,7 +161,7 @@ public final class SoldierCombatGoal extends Goal {
 			return;
 		}
 
-		if (distance < preferredMin) {
+		if (distance < preferredMin && !safelyElevated) {
 			if (this.soldier.isUsingItem()) {
 				this.soldier.stopUsingItem();
 			}
@@ -173,6 +176,13 @@ public final class SoldierCombatGoal extends Goal {
 
 		this.soldier.equipBow();
 		boolean canSee = this.soldier.getSensing().hasLineOfSight(target);
+		if (safelyElevated && !canSee) {
+			if (this.soldier.isUsingItem()) {
+				this.soldier.stopUsingItem();
+			}
+			this.soldier.getNavigation().stop();
+			return;
+		}
 		if (distance > preferredMax || !canSee) {
 			if (this.soldier.isUsingItem()) {
 				this.soldier.stopUsingItem();
@@ -182,13 +192,15 @@ public final class SoldierCombatGoal extends Goal {
 		}
 
 		this.soldier.getNavigation().stop();
-		this.soldier.getMoveControl().strafe(
-				distance < preferredMin * 1.35 ? -0.25F : 0.12F,
-				this.strafeClockwise ? 0.38F : -0.38F
-		);
-		if (++this.strafeTicks >= 30) {
-			this.strafeTicks = 0;
-			this.strafeClockwise = !this.strafeClockwise;
+		if (!safelyElevated) {
+			this.soldier.getMoveControl().strafe(
+					distance < preferredMin * 1.35 ? -0.25F : 0.12F,
+					this.strafeClockwise ? 0.38F : -0.38F
+			);
+			if (++this.strafeTicks >= 30) {
+				this.strafeTicks = 0;
+				this.strafeClockwise = !this.strafeClockwise;
+			}
 		}
 
 		if (this.soldier.isUsingItem()) {
