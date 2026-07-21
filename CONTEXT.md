@@ -28,12 +28,13 @@
 | `releases/battle-soldiers-1.5.0.jar` | Previous adaptive-threat release |
 | `releases/battle-soldiers-2.0.0.jar` | Previous coordinated-specialist release |
 | `releases/battle-soldiers-2.0.1.jar` | Previous specialist-visibility release |
-| `releases/battle-soldiers-2.1.0.jar` | Current full-combat-system GitHub-hosted release |
+| `releases/battle-soldiers-2.1.0.jar` | Previous full-combat-system release |
+| `releases/battle-soldiers-2.2.0.jar` | Current solo-duel GitHub-hosted release |
 
 ## Current State
 - Complete implementation is on `cursor/battle-soldiers-mod-1918`; draft PR #1 targets `main`.
 - `/soldiers <count> <gear 1-6>` and advanced battle/team/join/clear/status subcommands are implemented.
-- Version 2.1.0 uses a custom `Monster` entity and unified combat state machine; no vanilla zombie, melee, or bow combat goals remain.
+- Version 2.2.0 uses a custom `Monster` entity and unified combat state machine; no vanilla zombie, melee, or bow combat goals remain.
 - Core classes remain Vanguard, Brute, Ranger, and Trapper.
 - Rare specialists are Medic, Engineer, Lancer, Duelist, Alchemist, Ender Skirmisher, and Demolitionist; specialists are capped at 20% per squad.
 - Rare specialists have distinct role colors; the core Trapper roll was raised slightly from 12% to 14%.
@@ -45,6 +46,8 @@
 - Individual combat now includes armor-aware weapon choice, hit combos, sprint resets, feints, and incoming-damage prediction.
 - Collective combat includes stable focus fire, role combo chains, low-health rotations, and real resource transfers.
 - Escape blocking is enabled only after a strict four-allies/three-quadrants/moving-target safety test.
+- Solo engagements bypass group rotations/flanks, use immediate target scans, shorter windups/recovery, cooldown strafing, faster pursuit, and wall-jump movement.
+- Tiny squads only roll Vanguard, Brute, or Duelist; Brutes reserve axes for jump crits and Vanguards reserve axes for active shield breaks.
 - Effective class movement is about 0.22–0.28, class health remains 18–22, and pursuit predicts moving targets without returning to extreme speeds.
 - Healing now always transitions from retreat to consumption; tier-4/5 soldiers carry a guaranteed healing option.
 - Shields react to explicit attack telegraphs, charged ranged weapons, and converging projectiles instead of distance timers.
@@ -57,7 +60,7 @@
 - Rangers persist one owned perch per engagement and never path, strafe, heal-retreat, build, breach, or wander off it.
 - Unsupported ground Rangers detect the loss of frontline allies and advance/fight instead of retreating indefinitely.
 - Soldiers never drop XP orbs.
-- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.1.0.jar`.
+- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.2.0.jar`.
 - A downloadable copy is staged at `/opt/cursor/artifacts/battle-soldiers-1.0.0.jar` (SHA-256 `344011d03587c796d13c037b1112eae672c0d950bcb42c1ff0d7107b635e43e1`).
 - Version 2.0.0 is also staged at `/opt/cursor/artifacts/battle-soldiers-2.0.0.jar` for direct chat delivery because the user's FortiGate policy blocks `raw.githubusercontent.com`.
 - Version 1.1.0 is committed at `releases/battle-soldiers-1.1.0.jar` with SHA-256 `627ebf2259d9be25a4a844b36646a9a43b1997065cb2b4b4ed1b154a1c80f6ab`.
@@ -68,6 +71,7 @@
 - Version 2.0.0 is committed at `releases/battle-soldiers-2.0.0.jar` with SHA-256 `5aac16f72eeb2d7ebc98d3b84aba19e98e8a5953cb6e7e7dcbd7ecf8d5c942a9`.
 - Version 2.0.1 is committed at `releases/battle-soldiers-2.0.1.jar` with SHA-256 `9c1dff69370a24561069df0901326d781ffe67705226c8cad7f3fe1299efb076`.
 - Version 2.1.0 is committed at `releases/battle-soldiers-2.1.0.jar` with SHA-256 `0e4436628940c8861af87ac25b548e5a79f899a4882ac7a322afb672e1d9394b`.
+- Version 2.2.0 is committed at `releases/battle-soldiers-2.2.0.jar` with SHA-256 `f159ae69991333d8b72c90d984689ea4854d52c0834c23d32d459fa4eeb9801e`.
 - Dedicated-server checks passed for 12.5% specialist composition in a 64-soldier sample, all seven specialists, Medic consumption, Engineer fortifications, Alchemist debuffs, Lancer spears, Demolitionist TNT, squad coordination, and prior combat systems.
 - All source, documentation, Gradle wrapper files, and release JARs are committed and synchronized to the GitHub feature branch.
 - The repository's pre-existing Python encryption/web-app files remain outside the Gradle source sets and are unchanged.
@@ -102,6 +106,8 @@
 | 2026-07-21 | Give specialists role colors and raise the Trapper core roll by two points. | Specialists needed instant visual identification, while Trappers were just below the desired battlefield frequency. |
 | 2026-07-21 | Add individual combos/feints/damage prediction and collective focus/chains/rotations/logistics. | Tier-6 soldiers still lost too easily in isolation and coordinated squads lacked layered follow-through. |
 | 2026-07-21 | Enable escape blocking only behind a strict surround-and-motion validator. | Escape denial is powerful but unacceptable if it spams blocks, traps allies, or guesses stationary escape routes. |
+| 2026-07-21 | Add a dedicated solo-engagement path and prohibit passive specialist rolls in tiny squads. | Group rotation/spacing logic and support roles caused 1v1 soldiers to look idle or disengage without replacements. |
+| 2026-07-21 | Reserve axes for Brute crits and active Vanguard shield breaks. | Normal axe swings wasted the weapon's burst identity and contradicted the intended crit-focused playstyle. |
 
 ## Agent Activity Log
 | Date | Agent | What Changed |
@@ -120,3 +126,4 @@
 | 2026-07-21 | GPT-5.6 Sol | Staged the 2.0.0 JAR as a direct Cursor artifact after the user's network blocked GitHub raw-content downloads. |
 | 2026-07-21 | GPT-5.6 Sol | Added 2.0.1 specialist name colors, a slight Trapper-frequency increase, a clean build, and a new release artifact. |
 | 2026-07-21 | GPT-5.6 Sol | Added 2.1.0 armor counters, combo/feint movement, damage prediction, focus chains, rotations, logistics, validated escape blocking, runtime telemetry, and a rebuilt artifact. |
+| 2026-07-21 | GPT-5.6 Sol | Added 2.2.0 solo-duel mode, immediate target scans, wall pressure, reduced duel downtime, crit-only Brute axes, shield-only Vanguard axes, runtime telemetry, and a rebuilt artifact. |
