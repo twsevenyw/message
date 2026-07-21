@@ -15,7 +15,7 @@ Install the mod and Fabric API in the `mods` folder. Multiplayer servers and con
 
 ## Download
 
-[Download Battle Soldiers 2.0.1](releases/battle-soldiers-2.0.1.jar?raw=1)
+[Download Battle Soldiers 2.1.0](releases/battle-soldiers-2.1.0.jar?raw=1)
 
 ## Quick start
 
@@ -98,6 +98,13 @@ Gear tiers improve equipment and tactical timing—not health. Every tier stays 
 - Consumables are selected by utility scores based on missing health, danger, effects, distance, and learned habits.
 - Terrain choices compare bridge, cover, and stair utility rather than executing the first fixed rule.
 - Non-shield soldiers calculate projectile closest approach and dodge laterally into collision-checked positions.
+- Melee fighters choose armor/shield counters, chain timed hits around recovery windows, and use third-hit finishers.
+- Vanguards and Duelists feint habitual blockers; damage prediction chooses totems, healing, or emergency disengagement before lethal hits.
+- Post-hit sprint resets, predictive windup tracking, pearls, and class-specific crit lunges create sustained individual pressure.
+- Squads adopt one hysteresis-stable focus target and increase pressure after web/debuff/explosive combo stages.
+- Low-health attackers rotate out of reserved frontline slots while replacements immediately advance.
+- Soldiers share arrows, blocks, gaps, and pearls with the rare role that needs them.
+- Engineers and Trappers may block a predicted escape cell only after four allies cover three quadrants, the target is grounded and moving, and the cell passes ally/collision safety checks.
 - A single custom state machine controls pathing, spacing, attack windups, recovery windows, shields, bows, weapon swaps, and class tactics.
 - Vanguards react to enemy attack telegraphs, melee posture, charged ranged weapons, and converging projectiles instead of raising shields on a timer.
 - Weapon analysis uses vanilla weapon/kinetic components, so Maces, spears, and future component-based weapons are treated as real threats rather than ignored.
@@ -136,7 +143,7 @@ Soldier-placed cobblestone and planks are cleaned up automatically. Blocks delib
 The distributable mod is written to:
 
 ```text
-build/libs/battle-soldiers-2.0.1.jar
+build/libs/battle-soldiers-2.1.0.jar
 ```
 
 For local development:
