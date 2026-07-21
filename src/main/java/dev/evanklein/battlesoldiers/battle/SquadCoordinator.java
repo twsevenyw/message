@@ -76,13 +76,13 @@ public final class SquadCoordinator {
 		}
 
 		float roll = soldier.getRandom().nextFloat();
-		if (roll < 0.42F) {
+		if (roll < 0.40F) {
 			return CombatRole.VANGUARD;
 		}
-		if (roll < 0.70F) {
+		if (roll < 0.68F) {
 			return CombatRole.BRUTE;
 		}
-		if (roll < 0.88F) {
+		if (roll < 0.86F) {
 			return CombatRole.RANGER;
 		}
 		return gear.id() >= 4 ? CombatRole.TRAPPER : CombatRole.VANGUARD;

@@ -442,7 +442,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	private void updateDisplayName() {
 		this.setCustomName(Component.literal(
 				this.squad.displayName() + " " + this.combatRole.displayName() + " • Gear " + this.gearLevel.id()
-		).withStyle(this.squad.color()));
+		).withStyle(this.combatRole.nameColor(this.squad.color())));
 		this.setCustomNameVisible(true);
 	}
 

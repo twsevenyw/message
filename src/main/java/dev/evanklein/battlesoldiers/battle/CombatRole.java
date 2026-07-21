@@ -1,5 +1,7 @@
 package dev.evanklein.battlesoldiers.battle;
 
+import net.minecraft.ChatFormatting;
+
 import java.util.Locale;
 
 public enum CombatRole {
@@ -46,6 +48,19 @@ public enum CombatRole {
 		return switch (this) {
 			case VANGUARD, BRUTE, TRAPPER, LANCER, DUELIST, ENDER_SKIRMISHER -> true;
 			default -> false;
+		};
+	}
+
+	public ChatFormatting nameColor(ChatFormatting squadColor) {
+		return switch (this) {
+			case MEDIC -> ChatFormatting.LIGHT_PURPLE;
+			case ENGINEER -> ChatFormatting.YELLOW;
+			case LANCER -> ChatFormatting.AQUA;
+			case DUELIST -> ChatFormatting.WHITE;
+			case ALCHEMIST -> ChatFormatting.DARK_PURPLE;
+			case ENDER_SKIRMISHER -> ChatFormatting.DARK_AQUA;
+			case DEMOLITIONIST -> ChatFormatting.DARK_RED;
+			default -> squadColor;
 		};
 	}
 
