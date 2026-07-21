@@ -15,7 +15,7 @@ Install the mod and Fabric API in the `mods` folder. Multiplayer servers and con
 
 ## Download
 
-[Download Battle Soldiers 2.1.0](releases/battle-soldiers-2.1.0.jar?raw=1)
+[Download Battle Soldiers 2.2.0](releases/battle-soldiers-2.2.0.jar?raw=1)
 
 ## Quick start
 
@@ -99,6 +99,10 @@ Gear tiers improve equipment and tactical timing—not health. Every tier stays 
 - Terrain choices compare bridge, cover, and stair utility rather than executing the first fixed rule.
 - Non-shield soldiers calculate projectile closest approach and dodge laterally into collision-checked positions.
 - Melee fighters choose armor/shield counters, chain timed hits around recovery windows, and use third-hit finishers.
+- Solo engagements bypass group rotations/flanks, scan targets every tick, shorten windups/recovery, and maintain movement during cooldowns.
+- Tiny squads only roll Vanguard, Brute, or Duelist, preventing passive support/Ranger 1v1 opponents.
+- Brutes use swords for normal pressure and pull axes only for jump crits; Vanguards pull axes only against an actively raised shield.
+- Wall-pinned soldiers jump-strafe laterally instead of waiting on navigation or attack recovery.
 - Vanguards and Duelists feint habitual blockers; damage prediction chooses totems, healing, or emergency disengagement before lethal hits.
 - Post-hit sprint resets, predictive windup tracking, pearls, and class-specific crit lunges create sustained individual pressure.
 - Squads adopt one hysteresis-stable focus target and increase pressure after web/debuff/explosive combo stages.
@@ -143,7 +147,7 @@ Soldier-placed cobblestone and planks are cleaned up automatically. Blocks delib
 The distributable mod is written to:
 
 ```text
-build/libs/battle-soldiers-2.1.0.jar
+build/libs/battle-soldiers-2.2.0.jar
 ```
 
 For local development:
