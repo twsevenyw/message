@@ -26,14 +26,16 @@
 | `releases/battle-soldiers-1.3.0.jar` | Previous reactive-combat release |
 | `releases/battle-soldiers-1.4.0.jar` | Previous enchanted-tier-six release |
 | `releases/battle-soldiers-1.5.0.jar` | Previous adaptive-threat release |
-| `releases/battle-soldiers-2.0.0.jar` | Current coordinated-specialist GitHub-hosted release |
+| `releases/battle-soldiers-2.0.0.jar` | Previous coordinated-specialist release |
+| `releases/battle-soldiers-2.0.1.jar` | Current specialist-visibility GitHub-hosted release |
 
 ## Current State
 - Complete implementation is on `cursor/battle-soldiers-mod-1918`; draft PR #1 targets `main`.
 - `/soldiers <count> <gear 1-6>` and advanced battle/team/join/clear/status subcommands are implemented.
-- Version 2.0.0 uses a custom `Monster` entity and unified combat state machine; no vanilla zombie, melee, or bow combat goals remain.
+- Version 2.0.1 uses a custom `Monster` entity and unified combat state machine; no vanilla zombie, melee, or bow combat goals remain.
 - Core classes remain Vanguard, Brute, Ranger, and Trapper.
 - Rare specialists are Medic, Engineer, Lancer, Duelist, Alchemist, Ender Skirmisher, and Demolitionist; specialists are capped at 20% per squad.
+- Rare specialists have distinct role colors; the core Trapper roll was raised slightly from 12% to 14%.
 - Commander, personality variants, and Crystalist are intentionally excluded.
 - A server-scoped squad blackboard shares ranked targets, frontline state, habits, reservations, and tier skill profiles.
 - Simultaneous melee attackers are capped; excess soldiers receive stable flank/replacement positions.
@@ -51,7 +53,7 @@
 - Rangers persist one owned perch per engagement and never path, strafe, heal-retreat, build, breach, or wander off it.
 - Unsupported ground Rangers detect the loss of frontline allies and advance/fight instead of retreating indefinitely.
 - Soldiers never drop XP orbs.
-- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.0.0.jar`.
+- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.0.1.jar`.
 - A downloadable copy is staged at `/opt/cursor/artifacts/battle-soldiers-1.0.0.jar` (SHA-256 `344011d03587c796d13c037b1112eae672c0d950bcb42c1ff0d7107b635e43e1`).
 - Version 2.0.0 is also staged at `/opt/cursor/artifacts/battle-soldiers-2.0.0.jar` for direct chat delivery because the user's FortiGate policy blocks `raw.githubusercontent.com`.
 - Version 1.1.0 is committed at `releases/battle-soldiers-1.1.0.jar` with SHA-256 `627ebf2259d9be25a4a844b36646a9a43b1997065cb2b4b4ed1b154a1c80f6ab`.
@@ -60,6 +62,7 @@
 - Version 1.4.0 is committed at `releases/battle-soldiers-1.4.0.jar` with SHA-256 `420a767977a5758a234aa447f453ccfa786dc840964d83d9b6ea304fdc630be0`.
 - Version 1.5.0 is committed at `releases/battle-soldiers-1.5.0.jar` with SHA-256 `13bcdbd95886056f9e680822e02ed4888b14b9911109b40aa9b00e084ac60809`.
 - Version 2.0.0 is committed at `releases/battle-soldiers-2.0.0.jar` with SHA-256 `5aac16f72eeb2d7ebc98d3b84aba19e98e8a5953cb6e7e7dcbd7ecf8d5c942a9`.
+- Version 2.0.1 is committed at `releases/battle-soldiers-2.0.1.jar` with SHA-256 `9c1dff69370a24561069df0901326d781ffe67705226c8cad7f3fe1299efb076`.
 - Dedicated-server checks passed for 12.5% specialist composition in a 64-soldier sample, all seven specialists, Medic consumption, Engineer fortifications, Alchemist debuffs, Lancer spears, Demolitionist TNT, squad coordination, and prior combat systems.
 - All source, documentation, Gradle wrapper files, and release JARs are committed and synchronized to the GitHub feature branch.
 - The repository's pre-existing Python encryption/web-app files remain outside the Gradle source sets and are unchanged.
@@ -91,6 +94,7 @@
 | 2026-07-21 | Cap rare specialists at 20% and keep core classes as the squad majority. | Support/ranged-heavy random compositions would collapse without enough soldiers able to absorb frontline pressure. |
 | 2026-07-21 | Add a shared squad blackboard and melee reservation/flank system. | Independent per-soldier decisions caused target thrashing, dogpiles, and no formation replacement. |
 | 2026-07-21 | Implement Medic, Engineer, Lancer, Duelist, Alchemist, Ender Skirmisher, and Demolitionist only. | The user requested these variety roles while explicitly excluding Commander, personality variants, and Crystalist. |
+| 2026-07-21 | Give specialists role colors and raise the Trapper core roll by two points. | Specialists needed instant visual identification, while Trappers were just below the desired battlefield frequency. |
 
 ## Agent Activity Log
 | Date | Agent | What Changed |
@@ -107,3 +111,4 @@
 | 2026-07-20 | GPT-5.6 Sol | Added 1.5.0 generic weapon/Mace adaptation, crystal standoff logic, persistent Ranger perches, frontline-aware Ranger aggression, runtime checks, and a rebuilt artifact. |
 | 2026-07-21 | GPT-5.6 Sol | Added 2.0.0 squad coordination, habit learning, reservations/formations, utility/terrain planning, projectile dodging, seven capped rare specialists, runtime validation, and a rebuilt artifact. |
 | 2026-07-21 | GPT-5.6 Sol | Staged the 2.0.0 JAR as a direct Cursor artifact after the user's network blocked GitHub raw-content downloads. |
+| 2026-07-21 | GPT-5.6 Sol | Added 2.0.1 specialist name colors, a slight Trapper-frequency increase, a clean build, and a new release artifact. |
