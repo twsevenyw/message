@@ -230,8 +230,7 @@ public final class SoldierCombatGoal extends Goal {
 
 	private void tickVanguard(LivingEntity target) {
 		if (this.attackWindup <= 0) {
-			SquadCoordinator.HabitSnapshot habits = SquadCoordinator.habits(this.soldier, target);
-			if (target.isBlocking() || target.getArmorValue() >= 15 || habits.shielding() >= 4) {
+			if (target.isBlocking()) {
 				this.soldier.equipAxe();
 			} else {
 				this.soldier.equipSword();
@@ -250,7 +249,7 @@ public final class SoldierCombatGoal extends Goal {
 	}
 
 	private void tickBrute(LivingEntity target) {
-		this.soldier.equipAxe();
+		this.soldier.equipSword();
 		this.tickMelee(target, CombatRole.BRUTE);
 	}
 
@@ -377,7 +376,8 @@ public final class SoldierCombatGoal extends Goal {
 
 	private void tickMelee(LivingEntity target, CombatRole role) {
 		double targetDistance = this.soldier.distanceToSqr(target);
-		if (targetDistance <= 36.0) {
+		boolean soloEngagement = SquadCoordinator.isSoloEngagement(this.soldier, target);
+		if (!soloEngagement && targetDistance <= 36.0) {
 			SquadCoordinator.MeleeDirective directive =
 					SquadCoordinator.meleeDirective(this.soldier, target);
 			if (!directive.mayWindup()) {
@@ -401,7 +401,8 @@ public final class SoldierCombatGoal extends Goal {
 			return;
 		}
 		if (this.attackWindup > 0) {
-			boolean canFeint = role == CombatRole.VANGUARD || role == CombatRole.DUELIST;
+			boolean canFeint = !soloEngagement
+					&& (role == CombatRole.VANGUARD || role == CombatRole.DUELIST);
 			SquadCoordinator.HabitSnapshot habits = SquadCoordinator.habits(this.soldier, target);
 			if (canFeint
 					&& this.feintCooldown <= 0
@@ -426,21 +427,41 @@ public final class SoldierCombatGoal extends Goal {
 			return;
 		}
 
+		if (this.shouldAttemptCritical(target, role)) {
+			this.startCriticalJump(target, role);
+			return;
+		}
+
 		if (this.soldier.isWithinMeleeAttackRange(target)) {
 			this.soldier.getNavigation().stop();
 			if (this.attackCooldown <= 0) {
 				if (target.isBlocking() && role == CombatRole.VANGUARD) {
 					this.soldier.equipAxe();
 				}
-				this.attackWindup = this.attackWindupTicks(role);
+				this.attackWindup = soloEngagement
+						? Math.min(6, this.attackWindupTicks(role))
+						: this.attackWindupTicks(role);
 				this.soldier.setAttackTelegraphed(true);
+			} else {
+				this.soldier.getMoveControl().strafe(
+						0.18F,
+						this.strafeClockwise ? 0.42F : -0.42F
+				);
+				if (++this.strafeTicks >= 12) {
+					this.strafeTicks = 0;
+					this.strafeClockwise = !this.strafeClockwise;
+				}
 			}
 			return;
 		}
 
-		if (this.shouldAttemptCritical(target, role)) {
-			this.startCriticalJump(target, role);
-			return;
+		if (this.soldier.horizontalCollision && targetDistance <= 16.0) {
+			this.soldier.getJumpControl().jump();
+			this.soldier.getMoveControl().strafe(
+					0.32F,
+					this.strafeClockwise ? 0.62F : -0.62F
+			);
+			this.strafeClockwise = !this.strafeClockwise;
 		}
 
 		if (this.pathCooldown-- <= 0 || this.soldier.getNavigation().isDone()) {
@@ -455,6 +476,9 @@ public final class SoldierCombatGoal extends Goal {
 				case MEDIC, ALCHEMIST -> 1.0;
 				case ENGINEER, DEMOLITIONIST -> 0.95;
 			};
+			if (soloEngagement) {
+				speed = Math.min(1.24, speed + 0.12);
+			}
 			this.moveToPredicted(target, speed, role);
 			int decisionPeriod = SquadCoordinator.skill(this.soldier.getGearLevel()).decisionPeriodTicks();
 			this.pathCooldown = Math.max(2, decisionPeriod / 2)
@@ -502,11 +526,17 @@ public final class SoldierCombatGoal extends Goal {
 				blocksAttacks.disable(level, target, 3.0F, blockingItem);
 			}
 		}
-		this.attackCooldown = Math.max(8, this.attackRecoveryTicks(role) - this.comboCount * 2);
+		int recovery = this.attackRecoveryTicks(role) - this.comboCount * 2;
+		if (SquadCoordinator.isSoloEngagement(this.soldier, target)) {
+			recovery = (int) Math.ceil(recovery * 0.65);
+		}
+		this.attackCooldown = Math.max(7, recovery);
 		SquadCoordinator.releaseMelee(this.soldier);
 		if (role == CombatRole.VANGUARD) {
 			this.soldier.equipSword();
 			this.shieldCooldown = Math.max(18, 50 - this.soldier.getGearLevel().id() * 4);
+		} else if (role == CombatRole.BRUTE) {
+			this.soldier.equipSword();
 		}
 	}
 
@@ -642,6 +672,9 @@ public final class SoldierCombatGoal extends Goal {
 		if (--this.critTimeout <= 0 || (this.critAirborne && this.soldier.onGround())) {
 			this.critJump = false;
 			this.soldier.setAttackTelegraphed(false);
+			if (this.criticalRole == CombatRole.BRUTE) {
+				this.soldier.equipSword();
+			}
 			this.attackCooldown = 6;
 			this.critCooldown = 24;
 		}
@@ -697,6 +730,9 @@ public final class SoldierCombatGoal extends Goal {
 		this.critAirborne = false;
 		this.critTimeout = 14;
 		this.criticalRole = role;
+		if (role == CombatRole.BRUTE) {
+			this.soldier.equipAxe();
+		}
 		this.attackWindup = 0;
 		this.soldier.setAttackTelegraphed(true);
 		this.soldier.getNavigation().stop();

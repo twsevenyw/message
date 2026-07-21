@@ -153,13 +153,13 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		this.targetSelector.addGoal(2, new ObstructionAwareTargetGoal<>(
 				this,
 				Player.class,
-				5,
+				1,
 				(target, level) -> target instanceof Player player && this.isValidPlayerTarget(player)
 		));
 		this.targetSelector.addGoal(3, new ObstructionAwareTargetGoal<>(
 				this,
 				BattleSoldierEntity.class,
-				5,
+				1,
 				(target, level) -> target instanceof BattleSoldierEntity soldier
 						&& this.isValidSoldierTarget(soldier)
 		));
@@ -225,6 +225,9 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		}
 		if (this.combatRole == CombatRole.VANGUARD) {
 			this.addToInventory(this.randomizedStack(this.gearLevel.axeWeapon()));
+		}
+		if (this.combatRole == CombatRole.BRUTE || this.combatRole == CombatRole.DEMOLITIONIST) {
+			this.addToInventory(this.randomizedStack(this.gearLevel.meleeWeapon()));
 		}
 		switch (this.combatRole) {
 			case MEDIC -> {

@@ -46,6 +46,16 @@ public final class SquadCoordinator {
 		SquadBoard board = squadBoard(soldier);
 		cleanupBoard(board, soldier.level().getGameTime());
 		int total = board.soldiers.size();
+		if (total < 3) {
+			float duelRoll = soldier.getRandom().nextFloat();
+			if (duelRoll < 0.52F) {
+				return CombatRole.VANGUARD;
+			}
+			if (duelRoll < 0.88F) {
+				return CombatRole.BRUTE;
+			}
+			return CombatRole.DUELIST;
+		}
 		int rareCount = (int) board.soldiers.values().stream().filter(Presence::specialist).count();
 		float rareChance = switch (gear) {
 			case ONE -> 0.01F;
@@ -141,7 +151,13 @@ public final class SquadCoordinator {
 	public static MeleeDirective meleeDirective(BattleSoldierEntity soldier, LivingEntity target) {
 		SquadBoard board = squadBoard(soldier);
 		long tick = soldier.level().getGameTime();
-		if (soldier.getHealth() < soldier.getMaxHealth() * 0.45F) {
+		boolean replacementAvailable = board.soldiers.values().stream().anyMatch(presence ->
+				!presence.id().equals(soldier.getUUID())
+						&& presence.role().isFrontline()
+						&& target.getUUID().equals(presence.targetId())
+						&& tick - presence.tick() <= 20
+		);
+		if (soldier.getHealth() < soldier.getMaxHealth() * 0.45F && replacementAvailable) {
 			releaseMelee(soldier);
 			Vec3 fallback = squadCentroid(board);
 			if (fallback == Vec3.ZERO) {
@@ -288,6 +304,21 @@ public final class SquadCoordinator {
 			}
 		}
 		return false;
+	}
+
+	public static boolean isSoloEngagement(BattleSoldierEntity soldier, LivingEntity target) {
+		SquadBoard board = squadBoard(soldier);
+		long tick = soldier.level().getGameTime();
+		int engagedAllies = 0;
+		for (Presence presence : board.soldiers.values()) {
+			if (tick - presence.tick() <= 20 && target.getUUID().equals(presence.targetId())) {
+				engagedAllies++;
+				if (engagedAllies > 1) {
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 
 	public static SkillProfile skill(GearLevel gear) {
