@@ -14,6 +14,7 @@ public final class DemolitionistGoal extends Goal {
 	private final BattleSoldierEntity soldier;
 	private LivingEntity victim;
 	private int cooldown;
+	private int retreatTicks;
 	private boolean planted;
 
 	public DemolitionistGoal(BattleSoldierEntity soldier) {
@@ -54,17 +55,19 @@ public final class DemolitionistGoal extends Goal {
 
 	@Override
 	public boolean canContinueToUse() {
-		return this.planted && this.cooldown > 120;
+		return this.planted && this.retreatTicks > 0;
 	}
 
 	@Override
 	public void start() {
 		this.planted = this.soldier.plantTnt(60);
 		this.cooldown = this.planted ? 300 : 80;
+		this.retreatTicks = this.planted ? 50 : 0;
 	}
 
 	@Override
 	public void tick() {
+		this.retreatTicks--;
 		Vec3 away = this.soldier.position().subtract(this.victim.position());
 		if (away.horizontalDistanceSqr() < 0.01) {
 			away = new Vec3(1.0, 0.0, 0.0);

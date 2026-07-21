@@ -103,9 +103,16 @@ public final class SquadCoordinator {
 				)
 		);
 		if (target != null) {
-			board.sharedTarget = target.getUUID();
-			board.sharedTargetTick = tick;
 			sampleHabits(board, soldier, target, tick);
+			double score = threatScore(board, soldier, target);
+			if (board.sharedTarget == null
+					|| board.sharedTarget.equals(target.getUUID())
+					|| tick - board.sharedTargetTick > 40
+					|| score >= board.sharedTargetScore + 20.0) {
+				board.sharedTarget = target.getUUID();
+				board.sharedTargetTick = tick;
+				board.sharedTargetScore = score;
+			}
 		}
 	}
 
@@ -270,6 +277,27 @@ public final class SquadCoordinator {
 		return Math.min(100, value + 1);
 	}
 
+	private static double threatScore(
+			SquadBoard board,
+			BattleSoldierEntity observer,
+			LivingEntity target
+	) {
+		HabitState habits = board.habits.get(target.getUUID());
+		double score = 100.0 - Math.min(40.0, Math.sqrt(observer.distanceToSqr(target)));
+		if (target instanceof Player) {
+			score += 25.0;
+		}
+		if (target.getHealth() <= target.getMaxHealth() * 0.35F) {
+			score += 22.0;
+		}
+		if (habits != null) {
+			score += Math.min(35.0, habits.mace * 3.0 + habits.crystals * 4.0);
+			score += Math.min(20.0, habits.ranged * 1.5 + habits.elevated * 1.5);
+			score += Math.min(12.0, habits.shielding + habits.strafing);
+		}
+		return score;
+	}
+
 	private static int roleCount(SquadBoard board, CombatRole role) {
 		return (int) board.soldiers.values().stream().filter(presence -> presence.role() == role).count();
 	}
@@ -311,6 +339,7 @@ public final class SquadCoordinator {
 		board.reservationBySoldier.keySet().removeIf(id -> !board.soldiers.containsKey(id));
 		if (board.sharedTarget != null && tick - board.sharedTargetTick > 200) {
 			board.sharedTarget = null;
+			board.sharedTargetScore = 0.0;
 		}
 		if (tick % 200 == 0) {
 			board.habits.values().forEach(HabitState::decay);
@@ -378,6 +407,7 @@ public final class SquadCoordinator {
 		final Map<UUID, HabitState> habits = new HashMap<>();
 		@Nullable UUID sharedTarget;
 		long sharedTargetTick;
+		double sharedTargetScore;
 	}
 
 	private static final class WorldBoard {
