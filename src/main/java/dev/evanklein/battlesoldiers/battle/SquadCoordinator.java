@@ -1,0 +1,390 @@
+package dev.evanklein.battlesoldiers.battle;
+
+import dev.evanklein.battlesoldiers.entity.BattleSoldierEntity;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.WeakHashMap;
+
+public final class SquadCoordinator {
+	private static final Map<MinecraftServer, ServerBoard> SERVERS =
+			Collections.synchronizedMap(new WeakHashMap<>());
+	private static final long STALE_TICKS = 60;
+
+	private SquadCoordinator() {
+	}
+
+	public static void register() {
+		ServerTickEvents.END_WORLD_TICK.register(SquadCoordinator::cleanupWorld);
+		ServerLifecycleEvents.SERVER_STOPPED.register(SERVERS::remove);
+	}
+
+	public static CombatRole chooseRole(BattleSoldierEntity soldier, GearLevel gear) {
+		SquadBoard board = squadBoard(soldier);
+		cleanupBoard(board, soldier.level().getGameTime());
+		int total = board.soldiers.size();
+		int rareCount = (int) board.soldiers.values().stream().filter(Presence::specialist).count();
+		float rareChance = switch (gear) {
+			case ONE -> 0.01F;
+			case TWO -> 0.04F;
+			case THREE -> 0.08F;
+			case FOUR -> 0.12F;
+			case FIVE -> 0.16F;
+			case SIX -> 0.20F;
+		};
+		int rareCap = Math.max(1, (int) Math.floor((total + 1) * 0.20));
+		if (rareCount < rareCap && soldier.getRandom().nextFloat() < rareChance) {
+			List<CombatRole> eligible = new ArrayList<>();
+			eligible.add(CombatRole.DUELIST);
+			if (gear.id() >= 2) {
+				eligible.add(CombatRole.LANCER);
+			}
+			if (gear.id() >= 3) {
+				eligible.add(CombatRole.MEDIC);
+				eligible.add(CombatRole.ENGINEER);
+			}
+			if (gear.id() >= 4) {
+				eligible.add(CombatRole.ALCHEMIST);
+				eligible.add(CombatRole.ENDER_SKIRMISHER);
+				eligible.add(CombatRole.DEMOLITIONIST);
+			}
+			eligible.sort((left, right) -> Integer.compare(roleCount(board, left), roleCount(board, right)));
+			int choiceBand = Math.min(3, eligible.size());
+			return eligible.get(soldier.getRandom().nextInt(choiceBand));
+		}
+
+		float roll = soldier.getRandom().nextFloat();
+		if (roll < 0.42F) {
+			return CombatRole.VANGUARD;
+		}
+		if (roll < 0.70F) {
+			return CombatRole.BRUTE;
+		}
+		if (roll < 0.88F) {
+			return CombatRole.RANGER;
+		}
+		return gear.id() >= 4 ? CombatRole.TRAPPER : CombatRole.VANGUARD;
+	}
+
+	public static void heartbeat(BattleSoldierEntity soldier) {
+		SquadBoard board = squadBoard(soldier);
+		long tick = soldier.level().getGameTime();
+		LivingEntity target = soldier.getTarget();
+		board.soldiers.put(
+				soldier.getUUID(),
+				new Presence(
+						soldier.getUUID(),
+						soldier.getCombatRole(),
+						soldier.position(),
+						target == null ? null : target.getUUID(),
+						tick
+				)
+		);
+		if (target != null) {
+			board.sharedTarget = target.getUUID();
+			board.sharedTargetTick = tick;
+			sampleHabits(board, soldier, target, tick);
+		}
+	}
+
+	public static void unregister(BattleSoldierEntity soldier) {
+		SquadBoard board = squadBoard(soldier);
+		UUID soldierId = soldier.getUUID();
+		board.soldiers.remove(soldierId);
+		board.reservationBySoldier.remove(soldierId);
+		board.meleeReservations.values().forEach(reservations -> reservations.remove(soldierId));
+	}
+
+	@Nullable
+	public static LivingEntity sharedTarget(BattleSoldierEntity soldier) {
+		SquadBoard board = squadBoard(soldier);
+		if (board.sharedTarget == null
+				|| soldier.level().getGameTime() - board.sharedTargetTick > skill(soldier.getGearLevel()).intelTtlTicks()) {
+			return null;
+		}
+		Entity entity = ((ServerLevel) soldier.level()).getEntity(board.sharedTarget);
+		return entity instanceof LivingEntity living && living.isAlive() && soldier.canAttack(living)
+				? living
+				: null;
+	}
+
+	public static MeleeDirective meleeDirective(BattleSoldierEntity soldier, LivingEntity target) {
+		SquadBoard board = squadBoard(soldier);
+		long tick = soldier.level().getGameTime();
+		LinkedHashSet<UUID> reservations =
+				board.meleeReservations.computeIfAbsent(target.getUUID(), ignored -> new LinkedHashSet<>());
+		reservations.removeIf(id -> {
+			Presence presence = board.soldiers.get(id);
+			return presence == null || tick - presence.tick() > 20;
+		});
+		UUID soldierId = soldier.getUUID();
+		int maxAttackers = skill(soldier.getGearLevel()).maxMeleeAttackers();
+		if (reservations.contains(soldierId)) {
+			board.reservationBySoldier.put(soldierId, target.getUUID());
+			return new MeleeDirective(true, target.position(), 0);
+		}
+		if (reservations.size() < maxAttackers) {
+			reservations.add(soldierId);
+			board.reservationBySoldier.put(soldierId, target.getUUID());
+			return new MeleeDirective(true, target.position(), reservations.size() - 1);
+		}
+
+		int slot = Math.floorMod(soldierId.hashCode(), 12);
+		double side = slot % 2 == 0 ? 1.0 : -1.0;
+		double angle = Math.toRadians(65.0 + (slot / 2) * 18.0) * side;
+		double radius = 4.5 + (slot / 6) * 1.5;
+		Vec3 approach = squadCentroid(board).subtract(target.position());
+		if (approach.horizontalDistanceSqr() < 0.01) {
+			approach = new Vec3(1.0, 0.0, 0.0);
+		}
+		approach = new Vec3(approach.x, 0.0, approach.z).normalize();
+		double cos = Math.cos(angle);
+		double sin = Math.sin(angle);
+		Vec3 rotated = new Vec3(
+				approach.x * cos - approach.z * sin,
+				0.0,
+				approach.x * sin + approach.z * cos
+		);
+		return new MeleeDirective(false, target.position().add(rotated.scale(radius)), slot);
+	}
+
+	public static void releaseMelee(BattleSoldierEntity soldier) {
+		SquadBoard board = squadBoard(soldier);
+		UUID targetId = board.reservationBySoldier.remove(soldier.getUUID());
+		if (targetId != null) {
+			Set<UUID> reservations = board.meleeReservations.get(targetId);
+			if (reservations != null) {
+				reservations.remove(soldier.getUUID());
+			}
+		}
+	}
+
+	public static HabitSnapshot habits(BattleSoldierEntity soldier, LivingEntity target) {
+		HabitState state = squadBoard(soldier).habits.get(target.getUUID());
+		return state == null
+				? HabitSnapshot.EMPTY
+				: new HabitSnapshot(
+						state.ranged,
+						state.shielding,
+						state.mace,
+						state.crystals,
+						state.elevated,
+						state.strafing
+				);
+	}
+
+	public static boolean hasFrontline(BattleSoldierEntity soldier, LivingEntity target) {
+		SquadBoard board = squadBoard(soldier);
+		for (Presence presence : board.soldiers.values()) {
+			if (!presence.role().isFrontline() || presence.targetId() == null) {
+				continue;
+			}
+			double dx = presence.position().x - target.getX();
+			double dz = presence.position().z - target.getZ();
+			if (dx * dx + dz * dz <= 64.0 && Math.abs(presence.position().y - target.getY()) <= 4.0) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public static SkillProfile skill(GearLevel gear) {
+		return switch (gear) {
+			case ONE -> new SkillProfile(10, 8, 30, 0.35, 2);
+			case TWO -> new SkillProfile(8, 7, 40, 0.45, 2);
+			case THREE -> new SkillProfile(6, 5, 60, 0.60, 3);
+			case FOUR -> new SkillProfile(5, 4, 80, 0.75, 3);
+			case FIVE -> new SkillProfile(4, 2, 100, 0.90, 4);
+			case SIX -> new SkillProfile(2, 1, 120, 1.00, 4);
+		};
+	}
+
+	private static void sampleHabits(
+			SquadBoard board,
+			BattleSoldierEntity observer,
+			LivingEntity target,
+			long tick
+	) {
+		if (!(target instanceof Player player)) {
+			return;
+		}
+		HabitState habits = board.habits.computeIfAbsent(player.getUUID(), ignored -> new HabitState());
+		if (tick - habits.lastSampleTick < 10) {
+			return;
+		}
+		habits.lastSampleTick = tick;
+		if (player.isUsingItem()
+				&& (player.getUseItem().is(Items.BOW)
+					|| player.getUseItem().is(Items.CROSSBOW)
+					|| player.getUseItem().is(Items.TRIDENT))) {
+			habits.ranged = saturatingIncrement(habits.ranged);
+		}
+		if (player.isBlocking()) {
+			habits.shielding = saturatingIncrement(habits.shielding);
+		}
+		if (player.getMainHandItem().is(Items.MACE)) {
+			habits.mace = saturatingIncrement(habits.mace);
+		}
+		if (player.getY() - observer.getY() >= 2.5) {
+			habits.elevated = saturatingIncrement(habits.elevated);
+		}
+		Vec3 velocity = player.getDeltaMovement();
+		Vec3 radial = observer.position().subtract(player.position());
+		if (radial.horizontalDistanceSqr() > 0.01) {
+			radial = new Vec3(radial.x, 0.0, radial.z).normalize();
+			Vec3 horizontalVelocity = new Vec3(velocity.x, 0.0, velocity.z);
+			double radialSpeed = Math.abs(horizontalVelocity.dot(radial));
+			double lateralSpeed = horizontalVelocity.subtract(radial.scale(horizontalVelocity.dot(radial))).length();
+			if (lateralSpeed >= 0.08 && lateralSpeed > radialSpeed * 1.2) {
+				habits.strafing = saturatingIncrement(habits.strafing);
+			}
+		}
+		if (observer.findNearestCrystal(12.0) != null) {
+			habits.crystals = saturatingIncrement(habits.crystals);
+		}
+	}
+
+	private static int saturatingIncrement(int value) {
+		return Math.min(100, value + 1);
+	}
+
+	private static int roleCount(SquadBoard board, CombatRole role) {
+		return (int) board.soldiers.values().stream().filter(presence -> presence.role() == role).count();
+	}
+
+	private static Vec3 squadCentroid(SquadBoard board) {
+		if (board.soldiers.isEmpty()) {
+			return Vec3.ZERO;
+		}
+		Vec3 sum = Vec3.ZERO;
+		for (Presence presence : board.soldiers.values()) {
+			sum = sum.add(presence.position());
+		}
+		return sum.scale(1.0 / board.soldiers.size());
+	}
+
+	private static SquadBoard squadBoard(BattleSoldierEntity soldier) {
+		ServerLevel level = (ServerLevel) soldier.level();
+		ServerBoard server = SERVERS.computeIfAbsent(level.getServer(), ignored -> new ServerBoard());
+		WorldBoard world = server.worlds.computeIfAbsent(level.dimension(), ignored -> new WorldBoard());
+		return world.squads.computeIfAbsent(soldier.getSquad(), ignored -> new SquadBoard());
+	}
+
+	private static void cleanupWorld(ServerLevel level) {
+		ServerBoard server = SERVERS.get(level.getServer());
+		if (server == null) {
+			return;
+		}
+		WorldBoard world = server.worlds.get(level.dimension());
+		if (world == null) {
+			return;
+		}
+		long tick = level.getGameTime();
+		world.squads.values().forEach(board -> cleanupBoard(board, tick));
+	}
+
+	private static void cleanupBoard(SquadBoard board, long tick) {
+		board.soldiers.entrySet().removeIf(entry -> tick - entry.getValue().tick() > STALE_TICKS);
+		board.meleeReservations.values().forEach(set -> set.removeIf(id -> !board.soldiers.containsKey(id)));
+		board.reservationBySoldier.keySet().removeIf(id -> !board.soldiers.containsKey(id));
+		if (board.sharedTarget != null && tick - board.sharedTargetTick > 200) {
+			board.sharedTarget = null;
+		}
+		if (tick % 200 == 0) {
+			board.habits.values().forEach(HabitState::decay);
+		}
+	}
+
+	public record MeleeDirective(boolean mayWindup, Vec3 position, int slot) {
+	}
+
+	public record HabitSnapshot(
+			int ranged,
+			int shielding,
+			int mace,
+			int crystals,
+			int elevated,
+			int strafing
+	) {
+		public static final HabitSnapshot EMPTY = new HabitSnapshot(0, 0, 0, 0, 0, 0);
+	}
+
+	public record SkillProfile(
+			int decisionPeriodTicks,
+			int reactionDelayTicks,
+			int intelTtlTicks,
+			double leadMultiplier,
+			int maxMeleeAttackers
+	) {
+	}
+
+	private record Presence(
+			UUID id,
+			CombatRole role,
+			Vec3 position,
+			@Nullable UUID targetId,
+			long tick
+	) {
+		boolean specialist() {
+			return this.role.isSpecialist();
+		}
+	}
+
+	private static final class HabitState {
+		int ranged;
+		int shielding;
+		int mace;
+		int crystals;
+		int elevated;
+		int strafing;
+		long lastSampleTick;
+
+		void decay() {
+			this.ranged = Math.max(0, this.ranged - 1);
+			this.shielding = Math.max(0, this.shielding - 1);
+			this.mace = Math.max(0, this.mace - 1);
+			this.crystals = Math.max(0, this.crystals - 1);
+			this.elevated = Math.max(0, this.elevated - 1);
+			this.strafing = Math.max(0, this.strafing - 1);
+		}
+	}
+
+	private static final class SquadBoard {
+		final Map<UUID, Presence> soldiers = new HashMap<>();
+		final Map<UUID, LinkedHashSet<UUID>> meleeReservations = new HashMap<>();
+		final Map<UUID, UUID> reservationBySoldier = new HashMap<>();
+		final Map<UUID, HabitState> habits = new HashMap<>();
+		@Nullable UUID sharedTarget;
+		long sharedTargetTick;
+	}
+
+	private static final class WorldBoard {
+		final EnumMap<SoldierSquad, SquadBoard> squads = new EnumMap<>(SoldierSquad.class);
+	}
+
+	private static final class ServerBoard {
+		final Map<ResourceKey<Level>, WorldBoard> worlds = new HashMap<>();
+	}
+}

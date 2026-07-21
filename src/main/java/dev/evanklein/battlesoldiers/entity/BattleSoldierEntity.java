@@ -5,8 +5,15 @@ import dev.evanklein.battlesoldiers.battle.BattleTeams;
 import dev.evanklein.battlesoldiers.battle.CombatRole;
 import dev.evanklein.battlesoldiers.battle.GearLevel;
 import dev.evanklein.battlesoldiers.battle.SoldierSquad;
+import dev.evanklein.battlesoldiers.battle.SquadCoordinator;
 import dev.evanklein.battlesoldiers.entity.ai.BreachObstacleGoal;
+import dev.evanklein.battlesoldiers.entity.ai.AlchemistDebuffGoal;
+import dev.evanklein.battlesoldiers.entity.ai.DemolitionistGoal;
+import dev.evanklein.battlesoldiers.entity.ai.EnderSkirmisherGoal;
+import dev.evanklein.battlesoldiers.entity.ai.EngineerFortifyGoal;
+import dev.evanklein.battlesoldiers.entity.ai.MedicSupportGoal;
 import dev.evanklein.battlesoldiers.entity.ai.ObstructionAwareTargetGoal;
+import dev.evanklein.battlesoldiers.entity.ai.ProjectileDodgeGoal;
 import dev.evanklein.battlesoldiers.entity.ai.RangerElevationGoal;
 import dev.evanklein.battlesoldiers.entity.ai.SoldierCombatGoal;
 import dev.evanklein.battlesoldiers.entity.ai.SoldierWanderGoal;
@@ -19,16 +26,19 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.util.Mth;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
@@ -44,6 +54,7 @@ import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.entity.item.PrimedTnt;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.monster.RangedAttackMob;
 import net.minecraft.world.entity.player.Inventory;
@@ -68,6 +79,7 @@ import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.world.level.portal.TeleportTransition;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
@@ -116,8 +128,14 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	@Override
 	protected void registerGoals() {
 		this.goalSelector.addGoal(0, new FloatGoal(this));
+		this.goalSelector.addGoal(1, new ProjectileDodgeGoal(this));
 		this.goalSelector.addGoal(1, new UseCombatConsumableGoal(this));
+		this.goalSelector.addGoal(2, new MedicSupportGoal(this));
+		this.goalSelector.addGoal(2, new EnderSkirmisherGoal(this));
+		this.goalSelector.addGoal(2, new DemolitionistGoal(this));
 		this.goalSelector.addGoal(2, new BreachObstacleGoal(this));
+		this.goalSelector.addGoal(3, new AlchemistDebuffGoal(this));
+		this.goalSelector.addGoal(3, new EngineerFortifyGoal(this));
 		this.goalSelector.addGoal(3, new RangerElevationGoal(this));
 		this.goalSelector.addGoal(3, new TrapperWebGoal(this));
 		this.goalSelector.addGoal(3, new TacticalBuildGoal(this));
@@ -143,15 +161,18 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	}
 
 	public void initializeSoldier(SoldierSquad squad, GearLevel gearLevel) {
+		SquadCoordinator.unregister(this);
 		this.squad = squad;
 		this.gearLevel = gearLevel;
 		this.combatRole = this.chooseCombatRole();
 		this.initialized = true;
 		this.generateRandomLoadout();
 		BattleTeams.assignSoldier(this);
+		SquadCoordinator.heartbeat(this);
 	}
 
 	public void initializeSoldier(SoldierSquad squad, GearLevel gearLevel, boolean archer) {
+		SquadCoordinator.unregister(this);
 		this.squad = squad;
 		this.gearLevel = gearLevel;
 		this.combatRole = archer
@@ -160,36 +181,11 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		this.initialized = true;
 		this.generateRandomLoadout();
 		BattleTeams.assignSoldier(this);
+		SquadCoordinator.heartbeat(this);
 	}
 
 	private CombatRole chooseCombatRole() {
-		float roll = this.getRandom().nextFloat();
-		return switch (this.gearLevel) {
-			case ONE -> roll < 0.55F
-					? CombatRole.VANGUARD
-					: roll < 0.85F ? CombatRole.BRUTE : CombatRole.RANGER;
-			case TWO -> roll < 0.50F
-					? CombatRole.VANGUARD
-					: roll < 0.78F ? CombatRole.BRUTE : CombatRole.RANGER;
-			case THREE -> roll < 0.45F
-					? CombatRole.VANGUARD
-					: roll < 0.70F ? CombatRole.BRUTE : CombatRole.RANGER;
-			case FOUR -> roll < 0.38F
-					? CombatRole.VANGUARD
-					: roll < 0.63F
-							? CombatRole.BRUTE
-							: roll < 0.86F ? CombatRole.RANGER : CombatRole.TRAPPER;
-			case FIVE -> roll < 0.35F
-					? CombatRole.VANGUARD
-					: roll < 0.60F
-							? CombatRole.BRUTE
-							: roll < 0.85F ? CombatRole.RANGER : CombatRole.TRAPPER;
-			case SIX -> roll < 0.30F
-					? CombatRole.VANGUARD
-					: roll < 0.55F
-							? CombatRole.BRUTE
-							: roll < 0.85F ? CombatRole.RANGER : CombatRole.TRAPPER;
-		};
+		return SquadCoordinator.chooseRole(this, this.gearLevel);
 	}
 
 	private CombatRole chooseMeleeRole() {
@@ -225,11 +221,31 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		if (this.combatRole == CombatRole.VANGUARD) {
 			this.addToInventory(this.randomizedStack(this.gearLevel.axeWeapon()));
 		}
+		switch (this.combatRole) {
+			case MEDIC -> {
+				this.addToInventory(PotionContents.createItemStack(Items.POTION, Potions.STRONG_HEALING));
+				this.addToInventory(PotionContents.createItemStack(Items.POTION, Potions.HEALING));
+				this.addToInventory(PotionContents.createItemStack(Items.POTION, Potions.REGENERATION));
+			}
+			case ENGINEER -> this.addToInventory(new ItemStack(Items.LADDER, 12 + this.gearLevel.id() * 2));
+			case ALCHEMIST -> {
+				this.addToInventory(PotionContents.createItemStack(Items.SPLASH_POTION, Potions.POISON));
+				this.addToInventory(PotionContents.createItemStack(Items.SPLASH_POTION, Potions.WEAKNESS));
+				this.addToInventory(PotionContents.createItemStack(Items.SPLASH_POTION, Potions.SLOWNESS));
+			}
+			case ENDER_SKIRMISHER ->
+					this.addToInventory(new ItemStack(Items.ENDER_PEARL, 2 + this.gearLevel.id() / 2));
+			case DEMOLITIONIST -> this.addToInventory(new ItemStack(Items.TNT, 2 + this.gearLevel.id() / 2));
+			default -> {
+			}
+		}
 
 		int blockCount = switch (this.combatRole) {
 			case RANGER -> 10 + this.gearLevel.id() * 2;
 			case TRAPPER -> 4 + this.gearLevel.id();
-			case VANGUARD, BRUTE -> 2 + this.gearLevel.id();
+			case ENGINEER -> 18 + this.gearLevel.id() * 3;
+			case DEMOLITIONIST -> 4 + this.gearLevel.id();
+			default -> 2 + this.gearLevel.id();
 		};
 		int cobblestone = Math.max(1, (int) Math.ceil(blockCount * 0.65));
 		this.addToInventory(new ItemStack(Items.COBBLESTONE, cobblestone));
@@ -291,8 +307,9 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	private Item primaryWeapon() {
 		return switch (this.combatRole) {
 			case RANGER -> Items.BOW;
-			case BRUTE -> this.gearLevel.axeWeapon();
-			case VANGUARD, TRAPPER -> this.gearLevel.meleeWeapon();
+			case BRUTE, DEMOLITIONIST -> this.gearLevel.axeWeapon();
+			case LANCER -> this.gearLevel.spearWeapon();
+			default -> this.gearLevel.meleeWeapon();
 		};
 	}
 
@@ -360,6 +377,8 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		this.applyEnchant(stack, unbreaking, 3);
 		if (stack.is(Items.BOW)) {
 			this.applyEnchant(stack, enchantments.getOrThrow(Enchantments.POWER), 5);
+		} else if (stack.has(DataComponents.KINETIC_WEAPON)) {
+			this.applyEnchant(stack, enchantments.getOrThrow(Enchantments.SHARPNESS), 5);
 		} else if (stack.is(Items.NETHERITE_SWORD)) {
 			this.applyEnchant(stack, enchantments.getOrThrow(Enchantments.SHARPNESS), 5);
 		} else if (stack.is(Items.NETHERITE_AXE)) {
@@ -400,14 +419,16 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		AttributeInstance movement = this.getAttribute(Attributes.MOVEMENT_SPEED);
 		float previousHealth = this.getHealth();
 		double classHealth = switch (this.combatRole) {
-			case BRUTE -> 22.0;
-			case RANGER -> 18.0;
-			case VANGUARD, TRAPPER -> 20.0;
+			case BRUTE, ENGINEER, DEMOLITIONIST -> 22.0;
+			case RANGER, MEDIC, DUELIST, ALCHEMIST, ENDER_SKIRMISHER -> 18.0;
+			case VANGUARD, TRAPPER, LANCER -> 20.0;
 		};
 		double classMovement = this.gearLevel.movementSpeed() + switch (this.combatRole) {
-			case BRUTE -> -0.015;
-			case RANGER, VANGUARD -> 0.0;
+			case ENGINEER, DEMOLITIONIST -> -0.020;
+			case BRUTE, MEDIC, ALCHEMIST -> -0.010;
+			case RANGER, VANGUARD, LANCER -> 0.0;
 			case TRAPPER -> 0.005;
+			case DUELIST, ENDER_SKIRMISHER -> 0.015;
 		};
 		if (maxHealth != null) {
 			maxHealth.setBaseValue(classHealth);
@@ -456,10 +477,12 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	}
 
 	public void setSquad(SoldierSquad squad) {
+		SquadCoordinator.unregister(this);
 		this.squad = squad;
 		this.updateDisplayName();
 		BattleTeams.assignSoldier(this);
 		this.setTarget(null);
+		SquadCoordinator.heartbeat(this);
 	}
 
 	public boolean isValidSoldierTarget(BattleSoldierEntity target) {
@@ -554,6 +577,58 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	}
 
 	@Nullable
+	public Vec3 findProjectileDodgePosition(double radius) {
+		if (!(this.level() instanceof ServerLevel level)) {
+			return null;
+		}
+		Projectile best = null;
+		double bestTime = Double.MAX_VALUE;
+		for (Projectile projectile : level.getEntitiesOfClass(
+				Projectile.class,
+				this.getBoundingBox().inflate(radius),
+				projectile -> projectile != null && !projectile.isRemoved()
+		)) {
+			Entity owner = projectile.getOwner();
+			if (owner == this || owner != null && this.isAlliedTo(owner)) {
+				continue;
+			}
+			Vec3 velocity = projectile.getDeltaMovement().subtract(this.getDeltaMovement());
+			if (velocity.lengthSqr() < 1.0E-4) {
+				continue;
+			}
+			Vec3 relative = this.getBoundingBox().getCenter().subtract(projectile.position());
+			double time = Mth.clamp(relative.dot(velocity) / velocity.lengthSqr(), 0.0, 12.0);
+			double miss = relative.subtract(velocity.scale(time)).length();
+			if (miss <= this.getBbWidth() + 0.8 && time < bestTime) {
+				best = projectile;
+				bestTime = time;
+			}
+		}
+		if (best == null) {
+			return null;
+		}
+
+		Vec3 velocity = best.getDeltaMovement();
+		Vec3 side = new Vec3(-velocity.z, 0.0, velocity.x);
+		if (side.lengthSqr() < 0.01) {
+			return null;
+		}
+		side = side.normalize();
+		for (double direction : new double[] {1.0, -1.0}) {
+			Vec3 destination = this.position().add(side.scale(3.0 * direction));
+			AABB box = this.getDimensions(this.getPose())
+					.makeBoundingBox(destination.x, destination.y, destination.z);
+			BlockPos feet = BlockPos.containing(destination);
+			if (level.getWorldBorder().isWithinBounds(box)
+					&& level.noCollision(this, box)
+					&& !level.getBlockState(feet.below()).isAir()) {
+				return destination;
+			}
+		}
+		return null;
+	}
+
+	@Nullable
 	public EndCrystal findNearestCrystal(double radius) {
 		if (!(this.level() instanceof ServerLevel level)) {
 			return null;
@@ -587,19 +662,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	}
 
 	public boolean hasFrontlineSupport(LivingEntity target) {
-		if (!(this.level() instanceof ServerLevel level)) {
-			return false;
-		}
-		AABB supportArea = target.getBoundingBox().inflate(8.0, 4.0, 8.0);
-		return !level.getEntitiesOfClass(
-				BattleSoldierEntity.class,
-				supportArea,
-				candidate -> candidate != this
-						&& candidate.isAlive()
-						&& candidate.getSquad() == this.squad
-						&& candidate.getCombatRole() != CombatRole.RANGER
-						&& candidate.getTarget() != null
-		).isEmpty();
+		return SquadCoordinator.hasFrontline(this, target);
 	}
 
 	@Override
@@ -682,6 +745,159 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		}
 	}
 
+	public void equipSpear() {
+		if (!this.getMainHandItem().is(this.gearLevel.spearWeapon())) {
+			this.switchMainHandFromInventory(stack -> stack.is(this.gearLevel.spearWeapon()));
+		}
+	}
+
+	public boolean hasInventoryItem(Item item) {
+		return this.findInventorySlot(stack -> stack.is(item)) != NO_SLOT;
+	}
+
+	public boolean consumeInventoryItem(Item item) {
+		int slot = this.findInventorySlot(stack -> stack.is(item));
+		if (slot == NO_SLOT) {
+			return false;
+		}
+		this.soldierInventory.removeItem(slot, 1);
+		return true;
+	}
+
+	@Nullable
+	public LivingEntity findWoundedAlly(double radius, double healthFraction) {
+		if (!(this.level() instanceof ServerLevel level)) {
+			return null;
+		}
+		LivingEntity best = null;
+		double bestScore = Double.MAX_VALUE;
+		for (LivingEntity candidate : level.getEntitiesOfClass(
+				LivingEntity.class,
+				this.getBoundingBox().inflate(radius),
+				candidate -> candidate != this
+						&& candidate.isAlive()
+						&& this.isAlliedTo(candidate)
+						&& candidate.getHealth() < candidate.getMaxHealth() * healthFraction
+		)) {
+			double score = this.distanceToSqr(candidate) + candidate.getHealth() * 0.2;
+			if (score < bestScore) {
+				best = candidate;
+				bestScore = score;
+			}
+		}
+		return best;
+	}
+
+	public boolean applyInventoryPotion(
+			Holder<Potion> potion,
+			Item potionItem,
+			LivingEntity recipient
+	) {
+		int slot = this.findInventorySlot(stack -> {
+			PotionContents contents = stack.get(DataComponents.POTION_CONTENTS);
+			return stack.is(potionItem) && contents != null && contents.is(potion);
+		});
+		if (slot == NO_SLOT) {
+			return false;
+		}
+		ItemStack stack = this.soldierInventory.removeItem(slot, 1);
+		PotionContents contents = stack.get(DataComponents.POTION_CONTENTS);
+		if (contents == null) {
+			return false;
+		}
+		contents.applyToLivingEntity(recipient, 1.0F);
+		if (this.level() instanceof ServerLevel level) {
+			level.sendParticles(
+					ParticleTypes.HEART,
+					recipient.getX(),
+					recipient.getY() + recipient.getBbHeight() * 0.5,
+					recipient.getZ(),
+					4,
+					0.4,
+					0.4,
+					0.4,
+					0.0
+			);
+		}
+		return true;
+	}
+
+	public boolean applyDebuffFromInventory(
+			Holder<Potion> potion,
+			LivingEntity target,
+			MobEffectInstance effect
+	) {
+		int slot = this.findInventorySlot(stack -> {
+			PotionContents contents = stack.get(DataComponents.POTION_CONTENTS);
+			return stack.is(Items.SPLASH_POTION) && contents != null && contents.is(potion);
+		});
+		if (slot == NO_SLOT || this.isAlliedTo(target)) {
+			return false;
+		}
+		this.soldierInventory.removeItem(slot, 1);
+		target.addEffect(effect, this);
+		return true;
+	}
+
+	public boolean blinkBehindTarget(LivingEntity target) {
+		if (!(this.level() instanceof ServerLevel level) || !this.consumeInventoryItem(Items.ENDER_PEARL)) {
+			return false;
+		}
+		Vec3 look = target.getLookAngle();
+		Vec3 horizontal = new Vec3(look.x, 0.0, look.z);
+		if (horizontal.lengthSqr() < 0.01) {
+			horizontal = new Vec3(1.0, 0.0, 0.0);
+		}
+		horizontal = horizontal.normalize();
+		for (int side = 0; side < 3; side++) {
+			Vec3 offset = switch (side) {
+				case 1 -> new Vec3(-horizontal.z, 0.0, horizontal.x).scale(2.5);
+				case 2 -> new Vec3(horizontal.z, 0.0, -horizontal.x).scale(2.5);
+				default -> horizontal.scale(-2.5);
+			};
+			Vec3 destination = target.position().add(offset);
+			AABB box = this.getDimensions(this.getPose())
+					.makeBoundingBox(destination.x, destination.y, destination.z);
+			BlockPos feet = BlockPos.containing(destination);
+			if (!level.getWorldBorder().isWithinBounds(box)
+					|| !level.noCollision(this, box)
+					|| level.getBlockState(feet.below()).isAir()) {
+				continue;
+			}
+			Entity teleported = this.teleport(new TeleportTransition(
+					level,
+					destination,
+					Vec3.ZERO,
+					target.getYRot() + 180.0F,
+					this.getXRot(),
+					TeleportTransition.DO_NOTHING
+			));
+			if (teleported != null) {
+				teleported.resetFallDistance();
+				this.getNavigation().stop();
+				return true;
+			}
+		}
+		this.addToInventory(new ItemStack(Items.ENDER_PEARL));
+		return false;
+	}
+
+	public boolean plantTnt(int fuseTicks) {
+		if (!(this.level() instanceof ServerLevel level)
+				|| !level.getGameRules().get(GameRules.TNT_EXPLODES)
+				|| !this.consumeInventoryItem(Items.TNT)) {
+			return false;
+		}
+		PrimedTnt tnt = new PrimedTnt(level, this.getX(), this.getY(), this.getZ(), this);
+		tnt.setFuse(fuseTicks);
+		if (!level.addFreshEntity(tnt)) {
+			this.addToInventory(new ItemStack(Items.TNT));
+			return false;
+		}
+		level.playSound(null, this.blockPosition(), SoundEvents.TNT_PRIMED, SoundSource.BLOCKS, 1.0F, 1.0F);
+		return true;
+	}
+
 	public boolean isHoldingAxe() {
 		return this.getMainHandItem().is(this.gearLevel.axeWeapon());
 	}
@@ -721,36 +937,75 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		if (this.consumableCooldown > 0 || this.isUsingItem() || this.preparedConsumableSlot != NO_SLOT) {
 			return false;
 		}
-
-		if (this.getHealth() <= this.getMaxHealth() * 0.6F) {
-			this.preparedConsumableSlot = this.findInventorySlot(stack -> stack.is(Items.GOLDEN_APPLE));
-			if (this.preparedConsumableSlot == NO_SLOT) {
-				this.preparedConsumableSlot =
-						this.findInventorySlot(stack -> stack.is(Items.ENCHANTED_GOLDEN_APPLE));
-			}
-			if (this.preparedConsumableSlot == NO_SLOT) {
-				this.preparedConsumableSlot = this.findPotionSlot(Potions.HEALING);
-			}
-		}
-
 		LivingEntity target = this.getTarget();
-		if (this.preparedConsumableSlot == NO_SLOT && this.isOnFire() && !this.hasEffect(MobEffects.FIRE_RESISTANCE)) {
-			this.preparedConsumableSlot = this.findPotionSlot(Potions.FIRE_RESISTANCE);
+		double healthFraction = this.getHealth() / this.getMaxHealth();
+		double missingHealth = 1.0 - healthFraction;
+		double danger = missingHealth * 0.45;
+		if (target != null) {
+			double distance = this.distanceToSqr(target);
+			danger += distance < 16.0 ? 0.30 : distance < 64.0 ? 0.18 : 0.05;
+			if (SquadCoordinator.habits(this, target).ranged() >= 4) {
+				danger += 0.12;
+			}
 		}
-		if (this.preparedConsumableSlot == NO_SLOT
-				&& target != null
-				&& !this.hasEffect(MobEffects.STRENGTH)
-				&& this.distanceToSqr(target) <= 144.0) {
-			this.preparedConsumableSlot = this.findPotionSlot(Potions.STRENGTH);
-		}
-		if (this.preparedConsumableSlot == NO_SLOT
-				&& target != null
-				&& !this.hasEffect(MobEffects.SPEED)
-				&& this.distanceToSqr(target) >= 64.0) {
-			this.preparedConsumableSlot = this.findPotionSlot(Potions.SWIFTNESS);
-		}
+		danger = Mth.clamp(danger, 0.0, 1.0);
 
+		double bestScore = 58.0;
+		for (int slot = 0; slot < this.soldierInventory.getContainerSize(); slot++) {
+			ItemStack stack = this.soldierInventory.getItem(slot);
+			double score = this.consumableUtility(stack, target, healthFraction, missingHealth, danger);
+			if (score > bestScore) {
+				bestScore = score;
+				this.preparedConsumableSlot = slot;
+			}
+		}
 		return this.preparedConsumableSlot != NO_SLOT;
+	}
+
+	private double consumableUtility(
+			ItemStack stack,
+			@Nullable LivingEntity target,
+			double healthFraction,
+			double missingHealth,
+			double danger
+	) {
+		if (stack.is(Items.GOLDEN_APPLE)) {
+			return healthFraction <= 0.72
+					? 50.0 + 40.0 * missingHealth + 25.0 * danger
+					: 0.0;
+		}
+		if (stack.is(Items.ENCHANTED_GOLDEN_APPLE)) {
+			return healthFraction < 0.30 || danger > 0.82
+					? 95.0 + 20.0 * missingHealth
+					: 10.0;
+		}
+		PotionContents contents = stack.get(DataComponents.POTION_CONTENTS);
+		if (!stack.is(Items.POTION) || contents == null) {
+			return 0.0;
+		}
+		if (contents.is(Potions.HEALING) || contents.is(Potions.STRONG_HEALING)) {
+			return healthFraction <= 0.75
+					? 55.0 + 45.0 * missingHealth + 30.0 * danger
+					: 0.0;
+		}
+		if (contents.is(Potions.FIRE_RESISTANCE)) {
+			return this.isOnFire() && !this.hasEffect(MobEffects.FIRE_RESISTANCE) ? 100.0 : 0.0;
+		}
+		if (contents.is(Potions.STRENGTH)) {
+			return target != null
+					&& !this.hasEffect(MobEffects.STRENGTH)
+					&& this.distanceToSqr(target) <= 144.0
+					? 62.0 + danger * 12.0
+					: 0.0;
+		}
+		if (contents.is(Potions.SWIFTNESS)) {
+			return target != null
+					&& !this.hasEffect(MobEffects.SPEED)
+					&& this.distanceToSqr(target) >= 64.0
+					? 60.0 + danger * 10.0
+					: 0.0;
+		}
+		return 0.0;
 	}
 
 	public boolean hasPreparedCombatConsumable() {
@@ -1064,6 +1319,15 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	public void tick() {
 		super.tick();
 		if (!this.level().isClientSide()) {
+			if (this.tickCount % 4 == Math.floorMod(this.getId(), 4)) {
+				SquadCoordinator.heartbeat(this);
+				if (this.getTarget() == null) {
+					LivingEntity sharedTarget = SquadCoordinator.sharedTarget(this);
+					if (sharedTarget != null) {
+						this.setTarget(sharedTarget);
+					}
+				}
+			}
 			if (this.consumableCooldown > 0) {
 				this.consumableCooldown--;
 			}
@@ -1189,6 +1453,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 
 	@Override
 	public void remove(Entity.RemovalReason reason) {
+		SquadCoordinator.unregister(this);
 		if (reason == Entity.RemovalReason.KILLED
 				|| reason == Entity.RemovalReason.DISCARDED
 				|| reason == Entity.RemovalReason.CHANGED_DIMENSION) {

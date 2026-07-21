@@ -1,12 +1,11 @@
 package dev.evanklein.battlesoldiers.entity.ai;
 
 import dev.evanklein.battlesoldiers.battle.CombatRole;
+import dev.evanklein.battlesoldiers.battle.TerrainPlanner;
 import dev.evanklein.battlesoldiers.entity.BattleSoldierEntity;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
-import net.minecraft.world.level.pathfinder.Path;
 
 import java.util.EnumSet;
 
@@ -44,45 +43,17 @@ public final class TacticalBuildGoal extends Goal {
 			return false;
 		}
 
-		Direction forward = directionToward(this.soldier, target);
-		BlockPos ahead = this.soldier.blockPosition().relative(forward);
-		BlockPos bridge = ahead.below();
-		Path path = this.soldier.getNavigation().createPath(target, 0);
-		boolean pathBlocked = path == null || !path.canReach() || this.soldier.getNavigation().isStuck();
-
-		if (pathBlocked
-				&& this.soldier.level().getBlockState(bridge).isAir()
-				&& this.soldier.level().getBlockState(ahead).isAir()
-				&& this.soldier.level().getBlockState(ahead.above()).isAir()
-				&& this.soldier.canPlaceTacticalBlock(bridge)) {
-			this.placement = bridge.immutable();
-			this.cooldownTicks = 18;
-			return true;
+		TerrainPlanner.TerrainPlan plan = TerrainPlanner.bestPlacement(this.soldier, target);
+		if (plan == null) {
+			return false;
 		}
-
-		boolean needsRangedCover = this.soldier.isRangedThreat(target)
-				&& this.soldier.getSensing().hasLineOfSight(target)
-				&& this.soldier.distanceToSqr(target) >= 64.0
-				&& (this.soldier.isArcher() || this.soldier.getHealth() < this.soldier.getMaxHealth() * 0.7F);
-		if (needsRangedCover) {
-			BlockPos cover = ahead;
-			if (this.soldier.canPlaceTacticalBlock(cover)) {
-				this.placement = cover.immutable();
-				this.cooldownTicks = 100;
-				return true;
-			}
-		}
-
-		boolean needsStep = pathBlocked
-				&& target.getY() - this.soldier.getY() >= 1.75
-				&& this.soldier.distanceToSqr(target) <= 144.0;
-		if (needsStep && this.soldier.canPlaceTacticalBlock(ahead)) {
-			this.placement = ahead.immutable();
-			this.cooldownTicks = 45;
-			return true;
-		}
-
-		return false;
+		this.placement = plan.position().immutable();
+		this.cooldownTicks = switch (plan.objective()) {
+			case BRIDGE -> 18;
+			case STAIR -> 45;
+			case COVER -> 100;
+		};
+		return true;
 	}
 
 	@Override
@@ -96,14 +67,5 @@ public final class TacticalBuildGoal extends Goal {
 	@Override
 	public boolean canContinueToUse() {
 		return false;
-	}
-
-	private static Direction directionToward(BattleSoldierEntity soldier, LivingEntity target) {
-		double deltaX = target.getX() - soldier.getX();
-		double deltaZ = target.getZ() - soldier.getZ();
-		if (Math.abs(deltaX) >= Math.abs(deltaZ)) {
-			return deltaX >= 0.0 ? Direction.EAST : Direction.WEST;
-		}
-		return deltaZ >= 0.0 ? Direction.SOUTH : Direction.NORTH;
 	}
 }

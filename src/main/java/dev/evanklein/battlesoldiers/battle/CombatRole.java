@@ -6,7 +6,14 @@ public enum CombatRole {
 	VANGUARD("vanguard", "Vanguard"),
 	BRUTE("brute", "Brute"),
 	RANGER("ranger", "Ranger"),
-	TRAPPER("trapper", "Trapper");
+	TRAPPER("trapper", "Trapper"),
+	MEDIC("medic", "Medic"),
+	ENGINEER("engineer", "Engineer"),
+	LANCER("lancer", "Lancer"),
+	DUELIST("duelist", "Duelist"),
+	ALCHEMIST("alchemist", "Alchemist"),
+	ENDER_SKIRMISHER("ender_skirmisher", "Ender Skirmisher"),
+	DEMOLITIONIST("demolitionist", "Demolitionist");
 
 	private final String id;
 	private final String displayName;
@@ -26,6 +33,20 @@ public enum CombatRole {
 
 	public boolean isArcher() {
 		return this == RANGER;
+	}
+
+	public boolean isSpecialist() {
+		return switch (this) {
+			case MEDIC, ENGINEER, LANCER, DUELIST, ALCHEMIST, ENDER_SKIRMISHER, DEMOLITIONIST -> true;
+			default -> false;
+		};
+	}
+
+	public boolean isFrontline() {
+		return switch (this) {
+			case VANGUARD, BRUTE, TRAPPER, LANCER, DUELIST, ENDER_SKIRMISHER -> true;
+			default -> false;
+		};
 	}
 
 	public static CombatRole byId(String id, boolean legacyArcher) {

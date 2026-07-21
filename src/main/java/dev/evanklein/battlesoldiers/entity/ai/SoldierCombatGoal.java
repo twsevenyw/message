@@ -1,6 +1,7 @@
 package dev.evanklein.battlesoldiers.entity.ai;
 
 import dev.evanklein.battlesoldiers.battle.CombatRole;
+import dev.evanklein.battlesoldiers.battle.SquadCoordinator;
 import dev.evanklein.battlesoldiers.entity.BattleSoldierEntity;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerLevel;
@@ -20,6 +21,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.MaceItem;
 import net.minecraft.world.item.TridentItem;
 import net.minecraft.world.item.component.BlocksAttacks;
+import net.minecraft.world.item.component.KineticWeapon;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.EnumSet;
@@ -72,6 +74,7 @@ public final class SoldierCombatGoal extends Goal {
 		this.soldier.setSprinting(false);
 		this.soldier.setAggressive(false);
 		this.soldier.setAttackTelegraphed(false);
+		SquadCoordinator.releaseMelee(this.soldier);
 		this.attackWindup = 0;
 		this.critJump = false;
 	}
@@ -114,6 +117,15 @@ public final class SoldierCombatGoal extends Goal {
 			case BRUTE -> this.tickBrute(target);
 			case RANGER -> this.tickRanger(target);
 			case TRAPPER -> this.tickTrapper(target);
+			case LANCER -> this.tickLancer(target);
+			case DUELIST -> {
+				this.soldier.equipSword();
+				this.tickMelee(target, CombatRole.DUELIST);
+			}
+			case MEDIC, ENGINEER, ALCHEMIST, ENDER_SKIRMISHER, DEMOLITIONIST -> {
+				this.soldier.equipSword();
+				this.tickMelee(target, this.soldier.getCombatRole());
+			}
 		}
 	}
 
@@ -221,6 +233,30 @@ public final class SoldierCombatGoal extends Goal {
 		this.tickMelee(target, CombatRole.TRAPPER);
 	}
 
+	private void tickLancer(LivingEntity target) {
+		this.soldier.equipSpear();
+		ItemStack spear = this.soldier.getMainHandItem();
+		KineticWeapon kinetic = spear.get(DataComponents.KINETIC_WEAPON);
+		if (kinetic == null) {
+			this.tickMelee(target, CombatRole.LANCER);
+			return;
+		}
+		double distance = this.soldier.distanceToSqr(target);
+		if (distance > 100.0) {
+			this.moveToPredicted(target, 1.08, CombatRole.LANCER);
+			return;
+		}
+		if (!this.soldier.isUsingItem()) {
+			this.soldier.startUsingItem(InteractionHand.MAIN_HAND);
+		}
+		this.soldier.getLookControl().setLookAt(target, 40.0F, 40.0F);
+		this.moveToPredicted(target, 1.12, CombatRole.LANCER);
+		if (this.soldier.getTicksUsingItem() >= Math.max(12, kinetic.computeDamageUseDuration())) {
+			this.soldier.stopUsingItem();
+			this.attackCooldown = 22;
+		}
+	}
+
 	private void tickRanger(LivingEntity target) {
 		double deltaX = target.getX() - this.soldier.getX();
 		double deltaZ = target.getZ() - this.soldier.getZ();
@@ -301,6 +337,21 @@ public final class SoldierCombatGoal extends Goal {
 	}
 
 	private void tickMelee(LivingEntity target, CombatRole role) {
+		double targetDistance = this.soldier.distanceToSqr(target);
+		if (targetDistance <= 36.0) {
+			SquadCoordinator.MeleeDirective directive =
+					SquadCoordinator.meleeDirective(this.soldier, target);
+			if (!directive.mayWindup()) {
+				this.soldier.setAttackTelegraphed(false);
+				this.soldier.getNavigation().moveTo(
+						directive.position().x,
+						directive.position().y,
+						directive.position().z,
+						1.05
+				);
+				return;
+			}
+		}
 		if (this.attackWindup > 0) {
 			if (this.soldier.isWithinMeleeAttackRange(target)) {
 				this.soldier.getNavigation().stop();
@@ -337,9 +388,16 @@ public final class SoldierCombatGoal extends Goal {
 				case BRUTE -> 1.02;
 				case RANGER -> 1.05;
 				case TRAPPER -> 1.10;
+				case LANCER -> 1.08;
+				case DUELIST -> 1.16;
+				case ENDER_SKIRMISHER -> 1.14;
+				case MEDIC, ALCHEMIST -> 1.0;
+				case ENGINEER, DEMOLITIONIST -> 0.95;
 			};
 			this.moveToPredicted(target, speed, role);
-			this.pathCooldown = 3 + this.soldier.getRandom().nextInt(3);
+			int decisionPeriod = SquadCoordinator.skill(this.soldier.getGearLevel()).decisionPeriodTicks();
+			this.pathCooldown = Math.max(2, decisionPeriod / 2)
+					+ this.soldier.getRandom().nextInt(2);
 		}
 		this.soldier.setSprinting(false);
 	}
@@ -349,6 +407,7 @@ public final class SoldierCombatGoal extends Goal {
 				&& this.soldier.distanceToSqr(target) <= 4.0;
 		if (!this.soldier.isWithinMeleeAttackRange(target) && !criticalReach) {
 			this.soldier.setAttackTelegraphed(false);
+			SquadCoordinator.releaseMelee(this.soldier);
 			this.attackCooldown = 8;
 			return;
 		}
@@ -366,6 +425,7 @@ public final class SoldierCombatGoal extends Goal {
 			}
 		}
 		this.attackCooldown = this.attackRecoveryTicks(role);
+		SquadCoordinator.releaseMelee(this.soldier);
 		if (role == CombatRole.VANGUARD) {
 			this.soldier.equipSword();
 			this.shieldCooldown = Math.max(18, 50 - this.soldier.getGearLevel().id() * 4);
@@ -543,9 +603,13 @@ public final class SoldierCombatGoal extends Goal {
 		}
 		int attemptRate = switch (role) {
 			case BRUTE -> 1;
+			case DUELIST -> 3;
+			case ENDER_SKIRMISHER -> 5;
 			case TRAPPER -> 7;
+			case LANCER -> 8;
 			case RANGER -> 10;
 			case VANGUARD -> 16;
+			case MEDIC, ENGINEER, ALCHEMIST, DEMOLITIONIST -> 18;
 		};
 		return this.soldier.getRandom().nextInt(attemptRate) == 0;
 	}
@@ -564,7 +628,12 @@ public final class SoldierCombatGoal extends Goal {
 		Vec3 difference = predictedTarget.subtract(this.soldier.position());
 		Vec3 horizontal = new Vec3(difference.x, 0.0, difference.z);
 		if (horizontal.lengthSqr() > 0.01) {
-			double lunge = role == CombatRole.BRUTE ? 0.50 : 0.35;
+			double lunge = switch (role) {
+				case BRUTE -> 0.50;
+				case DUELIST, ENDER_SKIRMISHER -> 0.45;
+				case LANCER -> 0.40;
+				default -> 0.35;
+			};
 			Vec3 current = this.soldier.getDeltaMovement();
 			Vec3 impulse = horizontal.normalize().scale(lunge);
 			this.soldier.setDeltaMovement(current.x + impulse.x, current.y, current.z + impulse.z);
@@ -585,19 +654,35 @@ public final class SoldierCombatGoal extends Goal {
 	private Vec3 predictTargetPosition(LivingEntity target, double speed, CombatRole role) {
 		Vec3 targetPosition = target.position();
 		Vec3 velocity = target.getDeltaMovement();
+		SquadCoordinator.SkillProfile skill = SquadCoordinator.skill(this.soldier.getGearLevel());
+		SquadCoordinator.HabitSnapshot habits = SquadCoordinator.habits(this.soldier, target);
 		double horizontalDistance = this.soldier.position().subtract(targetPosition).horizontalDistance();
 		double movementSpeed = Math.max(
 				0.08,
 				this.soldier.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED)
 						* speed
 		);
-		double leadTicks = Mth.clamp(horizontalDistance / movementSpeed, 2.0, 8.0);
+		double leadTicks = Mth.clamp(
+				horizontalDistance / movementSpeed * skill.leadMultiplier(),
+				1.0,
+				8.0
+		);
+		if (habits.strafing() >= 4) {
+			leadTicks *= 1.25;
+		}
 		double overshootCap = switch (role) {
 			case VANGUARD -> 1.45;
 			case BRUTE -> 1.90;
 			case RANGER -> 1.60;
 			case TRAPPER -> 1.70;
+			case DUELIST, ENDER_SKIRMISHER -> 2.0;
+			case LANCER -> 2.1;
+			case MEDIC, ALCHEMIST -> 1.5;
+			case ENGINEER, DEMOLITIONIST -> 1.6;
 		};
+		if (habits.mace() >= 3 || habits.elevated() >= 4) {
+			overshootCap += 0.35;
+		}
 		Vec3 offset = new Vec3(velocity.x, 0.0, velocity.z).scale(leadTicks);
 		double offsetLength = offset.horizontalDistance();
 		if (offsetLength > overshootCap) {
@@ -613,6 +698,11 @@ public final class SoldierCombatGoal extends Goal {
 			case BRUTE -> 19 - tier;
 			case RANGER -> 15 - tier;
 			case TRAPPER -> 15 - tier;
+			case DUELIST -> 10 - Math.min(4, tier / 2);
+			case LANCER -> 13 - Math.min(4, tier / 2);
+			case ENDER_SKIRMISHER -> 11 - Math.min(3, tier / 2);
+			case MEDIC, ENGINEER, ALCHEMIST -> 16 - Math.min(4, tier / 2);
+			case DEMOLITIONIST -> 18 - Math.min(4, tier / 2);
 		};
 	}
 
@@ -623,6 +713,11 @@ public final class SoldierCombatGoal extends Goal {
 			case BRUTE -> 33 - tier;
 			case RANGER -> 25 - tier;
 			case TRAPPER -> 27 - tier;
+			case DUELIST -> 17 - Math.min(4, tier / 2);
+			case LANCER -> 24 - Math.min(4, tier / 2);
+			case ENDER_SKIRMISHER -> 20 - Math.min(4, tier / 2);
+			case MEDIC, ENGINEER, ALCHEMIST -> 27 - Math.min(3, tier / 2);
+			case DEMOLITIONIST -> 30 - Math.min(3, tier / 2);
 		};
 	}
 }

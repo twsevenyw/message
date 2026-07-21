@@ -142,6 +142,16 @@ public enum GearLevel {
 		};
 	}
 
+	public Item spearWeapon() {
+		return switch (this) {
+			case ONE -> Items.WOODEN_SPEAR;
+			case TWO -> Items.STONE_SPEAR;
+			case THREE -> Items.IRON_SPEAR;
+			case FOUR -> Items.DIAMOND_SPEAR;
+			case FIVE, SIX -> Items.NETHERITE_SPEAR;
+		};
+	}
+
 	public Item backupWeapon() {
 		return switch (this) {
 			case ONE -> Items.WOODEN_SWORD;
