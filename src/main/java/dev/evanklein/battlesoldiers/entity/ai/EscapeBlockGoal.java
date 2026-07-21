@@ -54,6 +54,7 @@ public final class EscapeBlockGoal extends Goal {
 				? this.soldier.placeCobwebTrap(this.escapeCell, this.victim)
 				: this.soldier.placeTacticalBlock(this.escapeCell);
 		if (placed) {
+			this.soldier.recordEscapeBlock();
 			SquadCoordinator.reportComboEvent(
 					this.soldier,
 					this.victim,

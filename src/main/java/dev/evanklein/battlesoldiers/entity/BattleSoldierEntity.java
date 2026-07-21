@@ -104,6 +104,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	private double criticalAttackMultiplier = 1.0;
 	private int criticalHits;
 	private int reactiveShieldUses;
+	private int escapeBlocksPlaced;
 	private int consumableCooldown;
 	private int preparedConsumableSlot = NO_SLOT;
 	private int rangerTowerCooldown;
@@ -555,6 +556,14 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 
 	public int getCriticalHits() {
 		return this.criticalHits;
+	}
+
+	public void recordEscapeBlock() {
+		this.escapeBlocksPlaced++;
+	}
+
+	public int getEscapeBlocksPlaced() {
+		return this.escapeBlocksPlaced;
 	}
 
 	public boolean hasIncomingProjectile(double radius) {
