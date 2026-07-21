@@ -1,6 +1,7 @@
 package dev.evanklein.battlesoldiers.entity.ai;
 
 import dev.evanklein.battlesoldiers.battle.CombatRole;
+import dev.evanklein.battlesoldiers.battle.SquadCoordinator;
 import dev.evanklein.battlesoldiers.entity.BattleSoldierEntity;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
@@ -63,6 +64,13 @@ public final class DemolitionistGoal extends Goal {
 		this.planted = this.soldier.plantTnt(60);
 		this.cooldown = this.planted ? 300 : 80;
 		this.retreatTicks = this.planted ? 50 : 0;
+		if (this.planted) {
+			SquadCoordinator.reportComboEvent(
+					this.soldier,
+					this.victim,
+					SquadCoordinator.ComboEvent.EXPLOSIVE
+			);
+		}
 	}
 
 	@Override

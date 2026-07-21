@@ -11,9 +11,11 @@ import dev.evanklein.battlesoldiers.entity.ai.AlchemistDebuffGoal;
 import dev.evanklein.battlesoldiers.entity.ai.DemolitionistGoal;
 import dev.evanklein.battlesoldiers.entity.ai.EnderSkirmisherGoal;
 import dev.evanklein.battlesoldiers.entity.ai.EngineerFortifyGoal;
+import dev.evanklein.battlesoldiers.entity.ai.EscapeBlockGoal;
 import dev.evanklein.battlesoldiers.entity.ai.MedicSupportGoal;
 import dev.evanklein.battlesoldiers.entity.ai.ObstructionAwareTargetGoal;
 import dev.evanklein.battlesoldiers.entity.ai.ProjectileDodgeGoal;
+import dev.evanklein.battlesoldiers.entity.ai.ResourceShareGoal;
 import dev.evanklein.battlesoldiers.entity.ai.RangerElevationGoal;
 import dev.evanklein.battlesoldiers.entity.ai.SoldierCombatGoal;
 import dev.evanklein.battlesoldiers.entity.ai.SoldierWanderGoal;
@@ -136,10 +138,12 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		this.goalSelector.addGoal(2, new BreachObstacleGoal(this));
 		this.goalSelector.addGoal(3, new AlchemistDebuffGoal(this));
 		this.goalSelector.addGoal(3, new EngineerFortifyGoal(this));
+		this.goalSelector.addGoal(3, new EscapeBlockGoal(this));
 		this.goalSelector.addGoal(3, new RangerElevationGoal(this));
 		this.goalSelector.addGoal(3, new TrapperWebGoal(this));
 		this.goalSelector.addGoal(3, new TacticalBuildGoal(this));
 		this.goalSelector.addGoal(4, new SoldierCombatGoal(this));
+		this.goalSelector.addGoal(6, new ResourceShareGoal(this));
 		this.goalSelector.addGoal(7, new SoldierWanderGoal(this, 0.9));
 		this.goalSelector.addGoal(8, new LookAtPlayerGoal(this, LivingEntity.class, 10.0F));
 		this.goalSelector.addGoal(9, new RandomLookAroundGoal(this));
@@ -519,6 +523,20 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 				|| target.isHolding(Items.TRIDENT);
 	}
 
+	public double estimatedIncomingDamage(LivingEntity attacker) {
+		double damage = attacker.getAttributeValue(Attributes.ATTACK_DAMAGE);
+		if (attacker.getMainHandItem().is(Items.MACE) && attacker.fallDistance > 1.5F) {
+			damage += Math.min(20.0, attacker.fallDistance * 2.5);
+		}
+		if (attacker.getMainHandItem().has(DataComponents.KINETIC_WEAPON)) {
+			damage *= 1.25;
+		}
+		if (attacker.isUsingItem() && this.isRangedThreat(attacker)) {
+			damage = Math.max(damage, 8.0);
+		}
+		return Math.max(1.0, damage);
+	}
+
 	public boolean isAttackTelegraphed() {
 		return this.attackTelegraphed;
 	}
@@ -755,6 +773,10 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		return this.findInventorySlot(stack -> stack.is(item)) != NO_SLOT;
 	}
 
+	public int countInventoryItem(Item item) {
+		return this.soldierInventory.countItem(item);
+	}
+
 	public boolean consumeInventoryItem(Item item) {
 		int slot = this.findInventorySlot(stack -> stack.is(item));
 		if (slot == NO_SLOT) {
@@ -762,6 +784,39 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		}
 		this.soldierInventory.removeItem(slot, 1);
 		return true;
+	}
+
+	public int transferInventoryItem(Item item, BattleSoldierEntity recipient, int requested) {
+		int moved = 0;
+		while (moved < requested) {
+			int slot = this.findInventorySlot(stack -> stack.is(item));
+			if (slot == NO_SLOT) {
+				break;
+			}
+			ItemStack taken = this.soldierInventory.removeItem(slot, 1);
+			ItemStack remainder = recipient.soldierInventory.addItem(taken);
+			if (!remainder.isEmpty()) {
+				this.addToInventory(remainder);
+				break;
+			}
+			moved++;
+		}
+		return moved;
+	}
+
+	@Nullable
+	public BattleSoldierEntity findNearbyAlly(CombatRole role, double radius) {
+		if (!(this.level() instanceof ServerLevel level)) {
+			return null;
+		}
+		return level.getEntitiesOfClass(
+				BattleSoldierEntity.class,
+				this.getBoundingBox().inflate(radius),
+				ally -> ally != this
+						&& ally.isAlive()
+						&& ally.getSquad() == this.squad
+						&& ally.getCombatRole() == role
+		).stream().findFirst().orElse(null);
 	}
 
 	@Nullable
@@ -903,7 +958,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	}
 
 	public void markCriticalAttack(double multiplier) {
-		this.criticalAttackMultiplier = Math.max(1.0, multiplier);
+		this.criticalAttackMultiplier = Math.max(this.criticalAttackMultiplier, Math.max(1.0, multiplier));
 	}
 
 	@Override
@@ -1063,7 +1118,11 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 			return;
 		}
 
-		if (this.getHealth() <= this.getMaxHealth() * 0.3F
+		LivingEntity threat = this.getTarget();
+		boolean predictedLethal = threat != null
+				&& this.estimatedIncomingDamage(threat)
+						>= this.getHealth() + this.getAbsorptionAmount();
+		if ((this.getHealth() <= this.getMaxHealth() * 0.3F || predictedLethal)
 				&& !this.getOffhandItem().is(Items.TOTEM_OF_UNDYING)) {
 			int totemSlot = this.findInventorySlot(stack -> stack.is(Items.TOTEM_OF_UNDYING));
 			if (totemSlot != NO_SLOT) {
@@ -1074,6 +1133,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		}
 
 		if (this.getHealth() > this.getMaxHealth() * 0.3F
+				&& !predictedLethal
 				&& this.getOffhandItem().is(Items.TOTEM_OF_UNDYING)) {
 			int shieldSlot = this.findInventorySlot(stack -> stack.is(Items.SHIELD));
 			if (shieldSlot != NO_SLOT) {
@@ -1321,11 +1381,11 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		if (!this.level().isClientSide()) {
 			if (this.tickCount % 4 == Math.floorMod(this.getId(), 4)) {
 				SquadCoordinator.heartbeat(this);
-				if (this.getTarget() == null) {
-					LivingEntity sharedTarget = SquadCoordinator.sharedTarget(this);
-					if (sharedTarget != null) {
-						this.setTarget(sharedTarget);
-					}
+				LivingEntity sharedTarget = SquadCoordinator.sharedTarget(this);
+				if (sharedTarget != null
+						&& (this.getTarget() == null
+								|| !this.getTarget().getUUID().equals(sharedTarget.getUUID()))) {
+					this.setTarget(sharedTarget);
 				}
 			}
 			if (this.consumableCooldown > 0) {

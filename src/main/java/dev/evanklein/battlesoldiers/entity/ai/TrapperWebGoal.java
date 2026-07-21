@@ -1,6 +1,7 @@
 package dev.evanklein.battlesoldiers.entity.ai;
 
 import dev.evanklein.battlesoldiers.battle.CombatRole;
+import dev.evanklein.battlesoldiers.battle.SquadCoordinator;
 import dev.evanklein.battlesoldiers.entity.BattleSoldierEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.LivingEntity;
@@ -46,6 +47,11 @@ public final class TrapperWebGoal extends Goal {
 		this.soldier.getNavigation().stop();
 		this.soldier.getLookControl().setLookAt(this.victim, 50.0F, 50.0F);
 		if (this.soldier.placeCobwebTrap(this.trapPosition, this.victim)) {
+			SquadCoordinator.reportComboEvent(
+					this.soldier,
+					this.victim,
+					SquadCoordinator.ComboEvent.WEBBED
+			);
 			int cooldown = switch (this.soldier.getGearLevel()) {
 				case SIX -> 45;
 				case FIVE -> 60;

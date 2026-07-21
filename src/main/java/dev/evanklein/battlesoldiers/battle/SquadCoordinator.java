@@ -4,6 +4,7 @@ import dev.evanklein.battlesoldiers.entity.BattleSoldierEntity;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -140,6 +141,14 @@ public final class SquadCoordinator {
 	public static MeleeDirective meleeDirective(BattleSoldierEntity soldier, LivingEntity target) {
 		SquadBoard board = squadBoard(soldier);
 		long tick = soldier.level().getGameTime();
+		if (soldier.getHealth() < soldier.getMaxHealth() * 0.45F) {
+			releaseMelee(soldier);
+			Vec3 fallback = squadCentroid(board);
+			if (fallback == Vec3.ZERO) {
+				fallback = soldier.position().subtract(target.position()).normalize().scale(6.0).add(soldier.position());
+			}
+			return new MeleeDirective(false, fallback, -1);
+		}
 		LinkedHashSet<UUID> reservations =
 				board.meleeReservations.computeIfAbsent(target.getUUID(), ignored -> new LinkedHashSet<>());
 		reservations.removeIf(id -> {
@@ -200,6 +209,70 @@ public final class SquadCoordinator {
 						state.elevated,
 						state.strafing
 				);
+	}
+
+	public static void reportComboEvent(
+			BattleSoldierEntity soldier,
+			LivingEntity target,
+			ComboEvent event
+	) {
+		SquadBoard board = squadBoard(soldier);
+		ComboState state = board.combos.computeIfAbsent(target.getUUID(), ignored -> new ComboState());
+		state.mask |= event.mask;
+		state.expiresAt = soldier.level().getGameTime() + event.durationTicks;
+		board.sharedTarget = target.getUUID();
+		board.sharedTargetTick = soldier.level().getGameTime();
+		board.sharedTargetScore = Math.max(board.sharedTargetScore, 180.0);
+	}
+
+	public static ComboSnapshot combo(BattleSoldierEntity soldier, LivingEntity target) {
+		ComboState state = squadBoard(soldier).combos.get(target.getUUID());
+		if (state == null || state.expiresAt < soldier.level().getGameTime()) {
+			return ComboSnapshot.EMPTY;
+		}
+		return new ComboSnapshot(
+				(state.mask & ComboEvent.WEBBED.mask) != 0,
+				(state.mask & ComboEvent.DEBUFFED.mask) != 0,
+				(state.mask & ComboEvent.EXPLOSIVE.mask) != 0
+		);
+	}
+
+	public static boolean isTargetSurrounded(BattleSoldierEntity soldier, LivingEntity target) {
+		SquadBoard board = squadBoard(soldier);
+		boolean[] quadrants = new boolean[4];
+		int nearby = 0;
+		for (Presence presence : board.soldiers.values()) {
+			double dx = presence.position().x - target.getX();
+			double dz = presence.position().z - target.getZ();
+			if (dx * dx + dz * dz > 49.0) {
+				continue;
+			}
+			nearby++;
+			double angle = Math.atan2(dz, dx);
+			int quadrant = Math.floorMod((int) Math.floor((angle + Math.PI) / (Math.PI / 2.0)), 4);
+			quadrants[quadrant] = true;
+		}
+		int covered = 0;
+		for (boolean quadrant : quadrants) {
+			if (quadrant) {
+				covered++;
+			}
+		}
+		return nearby >= 4 && covered >= 3;
+	}
+
+	@Nullable
+	public static BlockPos predictedEscapeBlock(BattleSoldierEntity soldier, LivingEntity target) {
+		if (!target.onGround() || !isTargetSurrounded(soldier, target)) {
+			return null;
+		}
+		Vec3 velocity = target.getDeltaMovement();
+		Vec3 horizontal = new Vec3(velocity.x, 0.0, velocity.z);
+		if (horizontal.lengthSqr() < 0.0064) {
+			return null;
+		}
+		Vec3 predicted = target.position().add(horizontal.normalize().scale(1.5));
+		return BlockPos.containing(predicted);
 	}
 
 	public static boolean hasFrontline(BattleSoldierEntity soldier, LivingEntity target) {
@@ -295,6 +368,10 @@ public final class SquadCoordinator {
 			score += Math.min(20.0, habits.ranged * 1.5 + habits.elevated * 1.5);
 			score += Math.min(12.0, habits.shielding + habits.strafing);
 		}
+		ComboState combo = board.combos.get(target.getUUID());
+		if (combo != null && combo.expiresAt >= observer.level().getGameTime()) {
+			score += 18.0 * Integer.bitCount(combo.mask);
+		}
 		return score;
 	}
 
@@ -344,6 +421,7 @@ public final class SquadCoordinator {
 		if (tick % 200 == 0) {
 			board.habits.values().forEach(HabitState::decay);
 		}
+		board.combos.entrySet().removeIf(entry -> entry.getValue().expiresAt < tick);
 	}
 
 	public record MeleeDirective(boolean mayWindup, Vec3 position, int slot) {
@@ -358,6 +436,28 @@ public final class SquadCoordinator {
 			int strafing
 	) {
 		public static final HabitSnapshot EMPTY = new HabitSnapshot(0, 0, 0, 0, 0, 0);
+	}
+
+	public record ComboSnapshot(boolean webbed, boolean debuffed, boolean explosive) {
+		public static final ComboSnapshot EMPTY = new ComboSnapshot(false, false, false);
+
+		public int chainStage() {
+			return (this.webbed ? 1 : 0) + (this.debuffed ? 1 : 0) + (this.explosive ? 1 : 0);
+		}
+	}
+
+	public enum ComboEvent {
+		WEBBED(1, 120),
+		DEBUFFED(2, 160),
+		EXPLOSIVE(4, 100);
+
+		private final int mask;
+		private final int durationTicks;
+
+		ComboEvent(int mask, int durationTicks) {
+			this.mask = mask;
+			this.durationTicks = durationTicks;
+		}
 	}
 
 	public record SkillProfile(
@@ -400,11 +500,17 @@ public final class SquadCoordinator {
 		}
 	}
 
+	private static final class ComboState {
+		int mask;
+		long expiresAt;
+	}
+
 	private static final class SquadBoard {
 		final Map<UUID, Presence> soldiers = new HashMap<>();
 		final Map<UUID, LinkedHashSet<UUID>> meleeReservations = new HashMap<>();
 		final Map<UUID, UUID> reservationBySoldier = new HashMap<>();
 		final Map<UUID, HabitState> habits = new HashMap<>();
+		final Map<UUID, ComboState> combos = new HashMap<>();
 		@Nullable UUID sharedTarget;
 		long sharedTargetTick;
 		double sharedTargetScore;

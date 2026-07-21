@@ -1,6 +1,7 @@
 package dev.evanklein.battlesoldiers.entity.ai;
 
 import dev.evanklein.battlesoldiers.battle.CombatRole;
+import dev.evanklein.battlesoldiers.battle.SquadCoordinator;
 import dev.evanklein.battlesoldiers.entity.BattleSoldierEntity;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -75,6 +76,13 @@ public final class AlchemistDebuffGoal extends Goal {
 			);
 		} else {
 			this.complete = true;
+		}
+		if (this.complete) {
+			SquadCoordinator.reportComboEvent(
+					this.soldier,
+					this.victim,
+					SquadCoordinator.ComboEvent.DEBUFFED
+			);
 		}
 	}
 

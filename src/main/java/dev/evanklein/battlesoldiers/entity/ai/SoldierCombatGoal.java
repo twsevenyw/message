@@ -40,6 +40,11 @@ public final class SoldierCombatGoal extends Goal {
 	private boolean critAirborne;
 	private int critTimeout;
 	private int critCooldown;
+	private int comboCount;
+	private int comboWindow;
+	private int feintCooldown;
+	private int feintTicks;
+	private int sprintBurstTicks;
 	private CombatRole criticalRole = CombatRole.BRUTE;
 
 	public SoldierCombatGoal(BattleSoldierEntity soldier) {
@@ -99,6 +104,31 @@ public final class SoldierCombatGoal extends Goal {
 		}
 		if (this.critCooldown > 0) {
 			this.critCooldown--;
+		}
+		if (this.comboWindow > 0) {
+			this.comboWindow--;
+		} else {
+			this.comboCount = 0;
+		}
+		if (this.feintCooldown > 0) {
+			this.feintCooldown--;
+		}
+		if (this.sprintBurstTicks > 0) {
+			this.sprintBurstTicks--;
+			this.soldier.setSprinting(true);
+		} else {
+			this.soldier.setSprinting(false);
+		}
+
+		double effectiveHealth = this.soldier.getHealth() + this.soldier.getAbsorptionAmount();
+		double predictedDamage = this.soldier.estimatedIncomingDamage(target);
+		boolean hasTotem = this.soldier.getOffhandItem().is(Items.TOTEM_OF_UNDYING)
+				|| this.soldier.hasInventoryItem(Items.TOTEM_OF_UNDYING);
+		if (predictedDamage >= effectiveHealth * 0.90
+				&& !hasTotem
+				&& this.soldier.getCombatRole() != CombatRole.VANGUARD) {
+			this.moveAwayFromPoint(target.position(), 6.0, 1.18);
+			return;
 		}
 
 		if (this.tickOverheadWeaponEvasion(target)) {
@@ -200,7 +230,12 @@ public final class SoldierCombatGoal extends Goal {
 
 	private void tickVanguard(LivingEntity target) {
 		if (this.attackWindup <= 0) {
-			this.soldier.equipSword();
+			SquadCoordinator.HabitSnapshot habits = SquadCoordinator.habits(this.soldier, target);
+			if (target.isBlocking() || target.getArmorValue() >= 15 || habits.shielding() >= 4) {
+				this.soldier.equipAxe();
+			} else {
+				this.soldier.equipSword();
+			}
 		}
 		if (this.shieldTicks > 0) {
 			this.tickShield(target);
@@ -329,7 +364,11 @@ public final class SoldierCombatGoal extends Goal {
 			if (drawTicks >= BowItem.MAX_DRAW_DURATION) {
 				this.soldier.stopUsingItem();
 				this.soldier.shootArrowAt(target, BowItem.getPowerForTime(drawTicks));
-				this.bowCooldown = this.soldier.getGearLevel().bowAttackInterval();
+				int interval = this.soldier.getGearLevel().bowAttackInterval();
+				if (target instanceof LivingEntity living) {
+					interval -= SquadCoordinator.combo(this.soldier, living).chainStage() * 4;
+				}
+				this.bowCooldown = Math.max(16, interval);
 			}
 		} else if (this.bowCooldown <= 0) {
 			this.soldier.startUsingItem(ProjectileUtil.getWeaponHoldingHand(this.soldier, Items.BOW));
@@ -352,7 +391,29 @@ public final class SoldierCombatGoal extends Goal {
 				return;
 			}
 		}
+		if (this.feintTicks > 0) {
+			this.soldier.getNavigation().stop();
+			this.soldier.getMoveControl().strafe(-0.12F, this.strafeClockwise ? 0.55F : -0.55F);
+			if (--this.feintTicks == 0) {
+				this.attackWindup = Math.max(3, this.attackWindupTicks(role) / 2);
+				this.soldier.setAttackTelegraphed(true);
+			}
+			return;
+		}
 		if (this.attackWindup > 0) {
+			boolean canFeint = role == CombatRole.VANGUARD || role == CombatRole.DUELIST;
+			SquadCoordinator.HabitSnapshot habits = SquadCoordinator.habits(this.soldier, target);
+			if (canFeint
+					&& this.feintCooldown <= 0
+					&& this.attackWindup > 3
+					&& (target.isBlocking() || habits.shielding() >= 4)
+					&& this.soldier.getRandom().nextInt(Math.max(4, 12 - this.soldier.getGearLevel().id())) == 0) {
+				this.attackWindup = 0;
+				this.feintTicks = 4;
+				this.feintCooldown = 60;
+				this.soldier.setAttackTelegraphed(false);
+				return;
+			}
 			if (this.soldier.isWithinMeleeAttackRange(target)) {
 				this.soldier.getNavigation().stop();
 				this.soldier.getMoveControl().strafe(0.08F, this.strafeClockwise ? 0.28F : -0.28F);
@@ -399,7 +460,9 @@ public final class SoldierCombatGoal extends Goal {
 			this.pathCooldown = Math.max(2, decisionPeriod / 2)
 					+ this.soldier.getRandom().nextInt(2);
 		}
-		this.soldier.setSprinting(false);
+		if (this.sprintBurstTicks <= 0) {
+			this.soldier.setSprinting(false);
+		}
 	}
 
 	private void performMeleeAttack(LivingEntity target, CombatRole role) {
@@ -415,16 +478,31 @@ public final class SoldierCombatGoal extends Goal {
 		boolean wasBlocking = target.isBlocking();
 		ItemStack blockingItem = target.getItemBlockingWith();
 		this.soldier.setAttackTelegraphed(false);
+		SquadCoordinator.ComboSnapshot squadCombo = SquadCoordinator.combo(this.soldier, target);
+		if (squadCombo.chainStage() >= 2) {
+			this.soldier.markCriticalAttack(1.15);
+		}
+		if (this.comboCount >= 2 && !criticalReach) {
+			this.soldier.markCriticalAttack(1.20);
+		}
 		this.soldier.swing(InteractionHand.MAIN_HAND);
 		ServerLevel level = getServerLevel(this.soldier);
 		boolean hit = this.soldier.doHurtTarget(level, target);
+		if (hit) {
+			this.comboCount = Math.min(4, this.comboCount + 1);
+			this.comboWindow = 40;
+			this.sprintBurstTicks = 6;
+		} else {
+			this.comboCount = 0;
+			this.comboWindow = 0;
+		}
 		if (hit && wasBlocking && blockingItem != null && this.soldier.isHoldingAxe()) {
 			BlocksAttacks blocksAttacks = blockingItem.get(DataComponents.BLOCKS_ATTACKS);
 			if (blocksAttacks != null) {
 				blocksAttacks.disable(level, target, 3.0F, blockingItem);
 			}
 		}
-		this.attackCooldown = this.attackRecoveryTicks(role);
+		this.attackCooldown = Math.max(8, this.attackRecoveryTicks(role) - this.comboCount * 2);
 		SquadCoordinator.releaseMelee(this.soldier);
 		if (role == CombatRole.VANGUARD) {
 			this.soldier.equipSword();
