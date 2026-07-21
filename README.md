@@ -15,7 +15,7 @@ Install the mod and Fabric API in the `mods` folder. Multiplayer servers and con
 
 ## Download
 
-[Download Battle Soldiers 2.0.0](releases/battle-soldiers-2.0.0.jar?raw=1)
+[Download Battle Soldiers 2.0.1](releases/battle-soldiers-2.0.1.jar?raw=1)
 
 ## Quick start
 
@@ -57,11 +57,11 @@ Commands require game-master permission (cheats in single-player or operator acc
 | Vanguard | 20 | Raises a shield, advances slowly, lowers it for telegraphed sword counters, and switches to an axe against blockers |
 | Brute | 22 | Slow axe fighter with long recoveries and strong descending jump-critical attacks |
 | Ranger | 18 | Keeps distance, strafes while drawing a finite-ammo bow, switches to backup melee up close, and builds cover/towers |
-| Trapper | 20 | Tier-4+ control class that predicts movement and places a large but finite supply of cobweb traps |
+| Trapper | 20 | Tier-4+ control class with a slightly increased 14% core-role chance and a large finite cobweb supply |
 
 ### Rare specialists
 
-Specialists are composition-capped to at most 20% of a squad, so frontline classes always remain the majority.
+Specialists are composition-capped to at most 20% of a squad, so frontline classes always remain the majority. Each specialist has a distinct name color for immediate battlefield identification.
 
 | Specialist | Health | Behavior |
 | --- | ---: | --- |
@@ -136,7 +136,7 @@ Soldier-placed cobblestone and planks are cleaned up automatically. Blocks delib
 The distributable mod is written to:
 
 ```text
-build/libs/battle-soldiers-2.0.0.jar
+build/libs/battle-soldiers-2.0.1.jar
 ```
 
 For local development:
