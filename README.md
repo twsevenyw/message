@@ -15,7 +15,7 @@ Install the mod and Fabric API in the `mods` folder. Multiplayer servers and con
 
 ## Download
 
-[Download Battle Soldiers 1.5.0](releases/battle-soldiers-1.5.0.jar?raw=1)
+[Download Battle Soldiers 2.0.0](releases/battle-soldiers-2.0.0.jar?raw=1)
 
 ## Quick start
 
@@ -59,6 +59,22 @@ Commands require game-master permission (cheats in single-player or operator acc
 | Ranger | 18 | Keeps distance, strafes while drawing a finite-ammo bow, switches to backup melee up close, and builds cover/towers |
 | Trapper | 20 | Tier-4+ control class that predicts movement and places a large but finite supply of cobweb traps |
 
+### Rare specialists
+
+Specialists are composition-capped to at most 20% of a squad, so frontline classes always remain the majority.
+
+| Specialist | Health | Behavior |
+| --- | ---: | --- |
+| Medic | 18 | Finds wounded allies and consumes finite healing/regeneration potions on them |
+| Engineer | 22 | Carries extra blocks/ladders and builds two-block squad fortifications |
+| Lancer | 20 | Uses tiered kinetic spears with extended charge reach |
+| Duelist | 18 | Fast sword pressure, aggressive flanks, and frequent jump-critical attempts |
+| Alchemist | 18 | Consumes finite poison, weakness, and slowness supplies without debuffing allies |
+| Ender Skirmisher | 18 | Consumes pearls to blink behind distant, elevated, or unreachable targets |
+| Demolitionist | 22 | Primes owned TNT against blocked positions only when allies have cleared the blast area |
+
+Commander, personality variants, and Crystalist are intentionally not implemented.
+
 ## Gear levels
 
 | Level | Equipment | Supplies and capability |
@@ -75,6 +91,13 @@ Gear tiers improve equipment and tactical timing—not health. Every tier stays 
 ## AI behavior
 
 - Every soldier owns a persistent 36-slot inventory containing its actual blocks, arrows, backup weapons, food, golden apples, shields, totems, and potions.
+- Squads share target intelligence, threat rankings, frontline state, and learned player habits through a server-side blackboard.
+- Only a tier-scaled number of melee soldiers may wind up at once; excess soldiers rotate into stable replacement and flank positions instead of dogpiling.
+- Squads learn repeated shielding, strafing, ranged use, elevation, Maces, and crystals, then adjust prediction and counters.
+- Decision cadence, reaction time, shared-intel lifetime, pursuit lead, and attack-slot count scale by skill tier rather than health.
+- Consumables are selected by utility scores based on missing health, danger, effects, distance, and learned habits.
+- Terrain choices compare bridge, cover, and stair utility rather than executing the first fixed rule.
+- Non-shield soldiers calculate projectile closest approach and dodge laterally into collision-checked positions.
 - A single custom state machine controls pathing, spacing, attack windups, recovery windows, shields, bows, weapon swaps, and class tactics.
 - Vanguards react to enemy attack telegraphs, melee posture, charged ranged weapons, and converging projectiles instead of raising shields on a timer.
 - Weapon analysis uses vanilla weapon/kinetic components, so Maces, spears, and future component-based weapons are treated as real threats rather than ignored.
@@ -113,7 +136,7 @@ Soldier-placed cobblestone and planks are cleaned up automatically. Blocks delib
 The distributable mod is written to:
 
 ```text
-build/libs/battle-soldiers-1.5.0.jar
+build/libs/battle-soldiers-2.0.0.jar
 ```
 
 For local development:
