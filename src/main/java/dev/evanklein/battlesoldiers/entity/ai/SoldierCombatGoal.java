@@ -176,7 +176,7 @@ public final class SoldierCombatGoal extends Goal {
 		boolean descending = target.getDeltaMovement().y < -0.05 || target.fallDistance > 0.5F;
 		boolean dangerous = genericWeapon
 				&& verticalDistance >= 2.5
-				&& horizontalDistance <= 49.0
+				&& horizontalDistance <= 20.25
 				&& (descending || mace || kinetic);
 		if (!dangerous) {
 			return false;
@@ -305,6 +305,19 @@ public final class SoldierCombatGoal extends Goal {
 		}
 
 		boolean canSee = this.soldier.getSensing().hasLineOfSight(target);
+		boolean antiAirMace = target.getMainHandItem().is(Items.MACE)
+				&& target.getY() - this.soldier.getY() >= 2.0;
+		if (antiAirMace) {
+			this.soldier.equipBow();
+			this.soldier.getNavigation().stop();
+			this.soldier.getMoveControl().setWait();
+			if (canSee) {
+				this.tickBowDrawAndFire(target, true);
+			} else {
+				this.moveToPredicted(target, 1.05, CombatRole.RANGER);
+			}
+			return;
+		}
 		if (this.soldier.shouldHoldRangerPerch()) {
 			this.soldier.equipBow();
 			this.soldier.getNavigation().stop();
@@ -358,16 +371,21 @@ public final class SoldierCombatGoal extends Goal {
 	}
 
 	private void tickBowDrawAndFire(Entity target) {
+		this.tickBowDrawAndFire(target, false);
+	}
+
+	private void tickBowDrawAndFire(Entity target, boolean antiAir) {
 		if (this.soldier.isUsingItem()) {
 			int drawTicks = this.soldier.getTicksUsingItem();
-			if (drawTicks >= BowItem.MAX_DRAW_DURATION) {
+			int requiredDraw = antiAir ? 10 : BowItem.MAX_DRAW_DURATION;
+			if (drawTicks >= requiredDraw) {
 				this.soldier.stopUsingItem();
 				this.soldier.shootArrowAt(target, BowItem.getPowerForTime(drawTicks));
 				int interval = this.soldier.getGearLevel().bowAttackInterval();
 				if (target instanceof LivingEntity living) {
 					interval -= SquadCoordinator.combo(this.soldier, living).chainStage() * 4;
 				}
-				this.bowCooldown = Math.max(16, interval);
+				this.bowCooldown = antiAir ? 10 : Math.max(16, interval);
 			}
 		} else if (this.bowCooldown <= 0) {
 			this.soldier.startUsingItem(ProjectileUtil.getWeaponHoldingHand(this.soldier, Items.BOW));

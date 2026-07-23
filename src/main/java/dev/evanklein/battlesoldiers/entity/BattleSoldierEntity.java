@@ -8,6 +8,7 @@ import dev.evanklein.battlesoldiers.battle.SoldierSquad;
 import dev.evanklein.battlesoldiers.battle.SquadCoordinator;
 import dev.evanklein.battlesoldiers.entity.ai.BreachObstacleGoal;
 import dev.evanklein.battlesoldiers.entity.ai.AlchemistDebuffGoal;
+import dev.evanklein.battlesoldiers.entity.ai.AntiMaceCounterGoal;
 import dev.evanklein.battlesoldiers.entity.ai.DemolitionistGoal;
 import dev.evanklein.battlesoldiers.entity.ai.EnderSkirmisherGoal;
 import dev.evanklein.battlesoldiers.entity.ai.EngineerFortifyGoal;
@@ -132,6 +133,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	protected void registerGoals() {
 		this.goalSelector.addGoal(0, new FloatGoal(this));
 		this.goalSelector.addGoal(1, new ProjectileDodgeGoal(this));
+		this.goalSelector.addGoal(1, new AntiMaceCounterGoal(this));
 		this.goalSelector.addGoal(1, new UseCombatConsumableGoal(this));
 		this.goalSelector.addGoal(2, new MedicSupportGoal(this));
 		this.goalSelector.addGoal(2, new EnderSkirmisherGoal(this));
@@ -1387,10 +1389,109 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		}
 	}
 
+	private void maintainCriticalClassSupplies() {
+		switch (this.combatRole) {
+			case RANGER -> {
+				this.ensureRoleWeapon(Items.BOW);
+				this.ensureInventoryCount(Items.ARROW, 32);
+				this.ensureInventoryCount(Items.COBBLESTONE, 16);
+				this.ensureInventoryCount(Items.OAK_PLANKS, 8);
+			}
+			case TRAPPER -> {
+				int webs = switch (this.gearLevel) {
+					case ONE, TWO, THREE -> 4;
+					case FOUR -> 6;
+					case FIVE -> 10;
+					case SIX -> 14;
+				};
+				this.ensureInventoryCount(Items.COBWEB, webs);
+			}
+			case MEDIC -> {
+				this.ensurePotionCount(Items.POTION, Potions.STRONG_HEALING, 2);
+				this.ensurePotionCount(Items.POTION, Potions.HEALING, 1);
+				this.ensurePotionCount(Items.POTION, Potions.REGENERATION, 1);
+			}
+			case ENGINEER -> {
+				this.ensureInventoryCount(Items.COBBLESTONE, 24);
+				this.ensureInventoryCount(Items.OAK_PLANKS, 12);
+				this.ensureInventoryCount(Items.LADDER, 16);
+			}
+			case LANCER -> this.ensureRoleWeapon(this.gearLevel.spearWeapon());
+			case DUELIST -> this.ensureRoleWeapon(this.gearLevel.meleeWeapon());
+			case ALCHEMIST -> {
+				this.ensurePotionCount(Items.SPLASH_POTION, Potions.POISON, 2);
+				this.ensurePotionCount(Items.SPLASH_POTION, Potions.WEAKNESS, 2);
+				this.ensurePotionCount(Items.SPLASH_POTION, Potions.SLOWNESS, 2);
+			}
+			case ENDER_SKIRMISHER -> this.ensureInventoryCount(Items.ENDER_PEARL, 5);
+			case DEMOLITIONIST -> {
+				this.ensureInventoryCount(Items.TNT, 5);
+				this.ensureRoleWeapon(this.gearLevel.axeWeapon());
+				this.ensureRoleWeapon(this.gearLevel.meleeWeapon());
+			}
+			case VANGUARD -> {
+				this.ensureRoleWeapon(this.gearLevel.meleeWeapon());
+				this.ensureRoleWeapon(this.gearLevel.axeWeapon());
+				this.ensureRoleWeapon(Items.SHIELD);
+			}
+			case BRUTE -> {
+				this.ensureRoleWeapon(this.gearLevel.meleeWeapon());
+				this.ensureRoleWeapon(this.gearLevel.axeWeapon());
+			}
+		}
+	}
+
+	private void ensureRoleWeapon(Item item) {
+		if (this.getMainHandItem().is(item)
+				|| this.getOffhandItem().is(item)
+				|| this.hasInventoryItem(item)) {
+			return;
+		}
+		ItemStack stack = this.randomizedStack(item);
+		if (this.gearLevel == GearLevel.SIX && this.level() instanceof ServerLevel level) {
+			this.enchantTierSixStack(
+					stack,
+					level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT)
+			);
+		}
+		this.addToInventory(stack);
+	}
+
+	private void ensureInventoryCount(Item item, int minimum) {
+		int missing = minimum - this.countInventoryItem(item);
+		if (missing <= 0) {
+			return;
+		}
+		if (new ItemStack(item).getMaxStackSize() > 1) {
+			this.addToInventory(new ItemStack(item, missing));
+		} else {
+			for (int index = 0; index < missing; index++) {
+				this.addToInventory(new ItemStack(item));
+			}
+		}
+	}
+
+	private void ensurePotionCount(Item item, Holder<Potion> potion, int minimum) {
+		int count = 0;
+		for (int slot = 0; slot < this.soldierInventory.getContainerSize(); slot++) {
+			ItemStack stack = this.soldierInventory.getItem(slot);
+			PotionContents contents = stack.get(DataComponents.POTION_CONTENTS);
+			if (stack.is(item) && contents != null && contents.is(potion)) {
+				count += stack.getCount();
+			}
+		}
+		for (int index = count; index < minimum; index++) {
+			this.addToInventory(PotionContents.createItemStack(item, potion));
+		}
+	}
+
 	@Override
 	public void tick() {
 		super.tick();
 		if (!this.level().isClientSide()) {
+			if (this.tickCount % 5 == Math.floorMod(this.getId(), 5)) {
+				this.maintainCriticalClassSupplies();
+			}
 			if (this.tickCount % 4 == Math.floorMod(this.getId(), 4)) {
 				SquadCoordinator.heartbeat(this);
 				LivingEntity sharedTarget = SquadCoordinator.sharedTarget(this);
