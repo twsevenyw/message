@@ -15,7 +15,7 @@ Install the mod and Fabric API in the `mods` folder. Multiplayer servers and con
 
 ## Download
 
-[Download Battle Soldiers 2.3.0](releases/battle-soldiers-2.3.0.jar?raw=1)
+[Download Battle Soldiers 2.4.0](releases/battle-soldiers-2.4.0.jar?raw=1)
 
 ## Quick start
 
@@ -116,10 +116,12 @@ Gear tiers improve equipment and tactical timing—not health. Every tier stays 
 - Soldiers predict overhead Mace/smash impact positions and leave the blast column instead of standing directly below elevated attackers.
 - Only soldiers inside the actual Mace impact radius evade; surrounding units maintain pressure.
 - Rangers fire rapid anti-air shots, Trappers web predicted landing cells, and Engineers place canopy blocks into fall paths to cancel smash distance.
+- Any attacker with more than five blocks of accumulated fall distance is treated as an imminent Mace threat even if they are still holding another weapon.
 - Soldiers scan for End Crystals, retreat outside their 12-block damage reach, and Rangers shoot safely exposed crystals when allies are clear.
 - Every melee class predicts moving targets and attempts telegraphed jump criticals; Brutes lunge for 1.5× crits while other classes use lighter 1.25× crits.
 - Pursuit leads a target's current velocity and continues tracking during attack windups, making simple circle-strafing less effective without returning to extreme speed.
 - Rangers consume finite arrows, build one owned tower per engagement, and hold that perch even when a target moves far away or briefly leaves targeting range.
+- Every third Ranger arrow is a no-gravity homing shot that continuously steers toward the target's predicted center.
 - Ground Rangers detect surviving frontline allies; once the melee line is gone they stop endless kiting, advance, shoot from a stand, and use backup melee up close.
 - Tier-4/5/6 Trappers receive 5/8/12 webs with faster high-tier trap cooldowns while refusing placements near allies.
 - Some soldiers carry and intelligently drink strength, swiftness, fire-resistance, or healing potions. Buff-potion odds are capped at 20%.
@@ -150,7 +152,7 @@ Soldier-placed cobblestone and planks are cleaned up automatically. Blocks delib
 The distributable mod is written to:
 
 ```text
-build/libs/battle-soldiers-2.3.0.jar
+build/libs/battle-soldiers-2.4.0.jar
 ```
 
 For local development:
