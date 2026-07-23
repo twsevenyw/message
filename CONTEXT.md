@@ -30,12 +30,13 @@
 | `releases/battle-soldiers-2.0.1.jar` | Previous specialist-visibility release |
 | `releases/battle-soldiers-2.1.0.jar` | Previous full-combat-system release |
 | `releases/battle-soldiers-2.2.0.jar` | Previous solo-duel release |
-| `releases/battle-soldiers-2.3.0.jar` | Current infinite-supplies/anti-Mace GitHub-hosted release |
+| `releases/battle-soldiers-2.3.0.jar` | Previous infinite-supplies/anti-Mace release |
+| `releases/battle-soldiers-2.4.0.jar` | Current delayed-Mace/homing-Ranger GitHub-hosted release |
 
 ## Current State
 - Complete implementation is on `cursor/battle-soldiers-mod-1918`; draft PR #1 targets `main`.
 - `/soldiers <count> <gear 1-6>` and advanced battle/team/join/clear/status subcommands are implemented.
-- Version 2.3.0 uses a custom `Monster` entity and unified combat state machine; no vanilla zombie, melee, or bow combat goals remain.
+- Version 2.4.0 uses a custom `Monster` entity and unified combat state machine; no vanilla zombie, melee, or bow combat goals remain.
 - Core classes remain Vanguard, Brute, Ranger, and Trapper.
 - Rare specialists are Medic, Engineer, Lancer, Duelist, Alchemist, Ender Skirmisher, and Demolitionist; specialists are capped at 20% per squad.
 - Rare specialists have distinct role colors; the core Trapper roll was raised slightly from 12% to 14%.
@@ -51,6 +52,8 @@
 - Tiny squads only roll Vanguard, Brute, or Duelist; Brutes reserve axes for jump crits and Vanguards reserve axes for active shield breaks.
 - Every role continuously replenishes its critical class supplies (arrows/blocks/webs/pearls/potions/TNT/weapons/shields).
 - Mace counterplay is layered: only units in the 4.5-block impact zone evade, Rangers fire rapid anti-air shots, Trappers web landing cells, and Engineers place fall-canceling canopy blocks.
+- Any fall over five blocks is treated as a delayed-Mace threat regardless of the currently held item.
+- Every third Ranger arrow is a persistent no-gravity homing shot steered toward the target's predicted center.
 - Effective class movement is about 0.22–0.28, class health remains 18–22, and pursuit predicts moving targets without returning to extreme speeds.
 - Healing now always transitions from retreat to consumption; tier-4/5 soldiers carry a guaranteed healing option.
 - Shields react to explicit attack telegraphs, charged ranged weapons, and converging projectiles instead of distance timers.
@@ -63,7 +66,7 @@
 - Rangers persist one owned perch per engagement and never path, strafe, heal-retreat, build, breach, or wander off it.
 - Unsupported ground Rangers detect the loss of frontline allies and advance/fight instead of retreating indefinitely.
 - Soldiers never drop XP orbs.
-- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.3.0.jar`.
+- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.4.0.jar`.
 - A downloadable copy is staged at `/opt/cursor/artifacts/battle-soldiers-1.0.0.jar` (SHA-256 `344011d03587c796d13c037b1112eae672c0d950bcb42c1ff0d7107b635e43e1`).
 - Version 2.0.0 is also staged at `/opt/cursor/artifacts/battle-soldiers-2.0.0.jar` for direct chat delivery because the user's FortiGate policy blocks `raw.githubusercontent.com`.
 - Version 1.1.0 is committed at `releases/battle-soldiers-1.1.0.jar` with SHA-256 `627ebf2259d9be25a4a844b36646a9a43b1997065cb2b4b4ed1b154a1c80f6ab`.
@@ -76,6 +79,7 @@
 - Version 2.1.0 is committed at `releases/battle-soldiers-2.1.0.jar` with SHA-256 `0e4436628940c8861af87ac25b548e5a79f899a4882ac7a322afb672e1d9394b`.
 - Version 2.2.0 is committed at `releases/battle-soldiers-2.2.0.jar` with SHA-256 `f159ae69991333d8b72c90d984689ea4854d52c0834c23d32d459fa4eeb9801e`.
 - Version 2.3.0 is committed at `releases/battle-soldiers-2.3.0.jar` with SHA-256 `a9a49b7523e03a3bc70612579659823a74c277285db7e3d893cfc5772fdab582`.
+- Version 2.4.0 is committed at `releases/battle-soldiers-2.4.0.jar` with SHA-256 `2ef5e180426ebc153ccdbf150b915de3bdff83a4867e393e171f4ff992f6765d`.
 - Dedicated-server checks passed for 12.5% specialist composition in a 64-soldier sample, all seven specialists, Medic consumption, Engineer fortifications, Alchemist debuffs, Lancer spears, Demolitionist TNT, squad coordination, and prior combat systems.
 - All source, documentation, Gradle wrapper files, and release JARs are committed and synchronized to the GitHub feature branch.
 - The repository's pre-existing Python encryption/web-app files remain outside the Gradle source sets and are unchanged.
@@ -114,6 +118,8 @@
 | 2026-07-21 | Reserve axes for Brute crits and active Vanguard shield breaks. | Normal axe swings wasted the weapon's burst identity and contradicted the intended crit-focused playstyle. |
 | 2026-07-23 | Continuously replenish critical class supplies. | Class identity collapsed once finite arrows, webs, pearls, potions, blocks, TNT, or role weapons were exhausted. |
 | 2026-07-23 | Replace squad-wide Mace evasion with layered anti-air counters. | Pure retreat inconvenienced a Mace player but did not punish repeated aerial smashes or protect the formation. |
+| 2026-07-23 | Treat 5+ block falls as Mace threats before the held-item swap occurs. | PvP players commonly begin the fall with another weapon and switch to the Mace only immediately before impact. |
+| 2026-07-23 | Make every third Ranger shot a homing arrow. | Rangers needed a predictable accuracy spike that punishes open-ground dodging without making every arrow unavoidable. |
 
 ## Agent Activity Log
 | Date | Agent | What Changed |
@@ -134,3 +140,4 @@
 | 2026-07-21 | GPT-5.6 Sol | Added 2.1.0 armor counters, combo/feint movement, damage prediction, focus chains, rotations, logistics, validated escape blocking, runtime telemetry, and a rebuilt artifact. |
 | 2026-07-21 | GPT-5.6 Sol | Added 2.2.0 solo-duel mode, immediate target scans, wall pressure, reduced duel downtime, crit-only Brute axes, shield-only Vanguard axes, runtime telemetry, and a rebuilt artifact. |
 | 2026-07-23 | GPT-5.6 Sol | Added 2.3.0 infinite role supplies, rapid Ranger anti-air fire, predicted Trapper landing webs, Engineer Mace canopies, focused runtime checks, and a rebuilt artifact. |
+| 2026-07-23 | GPT-5.6 Sol | Added 2.4.0 delayed-Mace fall detection, every-third Ranger homing arrows, server tracking, persistence/telemetry, runtime checks, and a rebuilt artifact. |
