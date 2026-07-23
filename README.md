@@ -15,7 +15,7 @@ Install the mod and Fabric API in the `mods` folder. Multiplayer servers and con
 
 ## Download
 
-[Download Battle Soldiers 2.2.0](releases/battle-soldiers-2.2.0.jar?raw=1)
+[Download Battle Soldiers 2.3.0](releases/battle-soldiers-2.3.0.jar?raw=1)
 
 ## Quick start
 
@@ -91,6 +91,7 @@ Gear tiers improve equipment and tactical timing—not health. Every tier stays 
 ## AI behavior
 
 - Every soldier owns a persistent 36-slot inventory containing its actual blocks, arrows, backup weapons, food, golden apples, shields, totems, and potions.
+- Every class continuously replenishes its critical role supplies: Ranger arrows/blocks, Trapper webs, Medic/Alchemist potions, Ender pearls, Engineer materials, Demolitionist TNT, and required role weapons.
 - Squads share target intelligence, threat rankings, frontline state, and learned player habits through a server-side blackboard.
 - Only a tier-scaled number of melee soldiers may wind up at once; excess soldiers rotate into stable replacement and flank positions instead of dogpiling.
 - Squads learn repeated shielding, strafing, ranged use, elevation, Maces, and crystals, then adjust prediction and counters.
@@ -113,6 +114,8 @@ Gear tiers improve equipment and tactical timing—not health. Every tier stays 
 - Vanguards react to enemy attack telegraphs, melee posture, charged ranged weapons, and converging projectiles instead of raising shields on a timer.
 - Weapon analysis uses vanilla weapon/kinetic components, so Maces, spears, and future component-based weapons are treated as real threats rather than ignored.
 - Soldiers predict overhead Mace/smash impact positions and leave the blast column instead of standing directly below elevated attackers.
+- Only soldiers inside the actual Mace impact radius evade; surrounding units maintain pressure.
+- Rangers fire rapid anti-air shots, Trappers web predicted landing cells, and Engineers place canopy blocks into fall paths to cancel smash distance.
 - Soldiers scan for End Crystals, retreat outside their 12-block damage reach, and Rangers shoot safely exposed crystals when allies are clear.
 - Every melee class predicts moving targets and attempts telegraphed jump criticals; Brutes lunge for 1.5× crits while other classes use lighter 1.25× crits.
 - Pursuit leads a target's current velocity and continues tracking during attack windups, making simple circle-strafing less effective without returning to extreme speed.
@@ -147,7 +150,7 @@ Soldier-placed cobblestone and planks are cleaned up automatically. Blocks delib
 The distributable mod is written to:
 
 ```text
-build/libs/battle-soldiers-2.2.0.jar
+build/libs/battle-soldiers-2.3.0.jar
 ```
 
 For local development:
