@@ -39,6 +39,7 @@ public final class AntiMaceCounterGoal extends Goal {
 		if (this.attacker == null
 				|| !this.attacker.isAlive()
 				|| !this.attacker.getMainHandItem().is(Items.MACE)
+						&& this.attacker.fallDistance <= 5.0F
 				|| this.attacker.getY() - this.soldier.getY() < 2.5
 				|| this.soldier.distanceToSqr(this.attacker) > 100.0) {
 			return false;

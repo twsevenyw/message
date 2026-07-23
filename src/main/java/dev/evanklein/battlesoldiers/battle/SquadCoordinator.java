@@ -355,7 +355,7 @@ public final class SquadCoordinator {
 		if (player.isBlocking()) {
 			habits.shielding = saturatingIncrement(habits.shielding);
 		}
-		if (player.getMainHandItem().is(Items.MACE)) {
+		if (player.getMainHandItem().is(Items.MACE) || player.fallDistance > 5.0F) {
 			habits.mace = saturatingIncrement(habits.mace);
 		}
 		if (player.getY() - observer.getY() >= 2.5) {

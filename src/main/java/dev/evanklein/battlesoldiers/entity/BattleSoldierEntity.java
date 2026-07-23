@@ -4,6 +4,7 @@ import com.mojang.serialization.Codec;
 import dev.evanklein.battlesoldiers.battle.BattleTeams;
 import dev.evanklein.battlesoldiers.battle.CombatRole;
 import dev.evanklein.battlesoldiers.battle.GearLevel;
+import dev.evanklein.battlesoldiers.battle.HomingArrowController;
 import dev.evanklein.battlesoldiers.battle.SoldierSquad;
 import dev.evanklein.battlesoldiers.battle.SquadCoordinator;
 import dev.evanklein.battlesoldiers.entity.ai.BreachObstacleGoal;
@@ -110,6 +111,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	private int preparedConsumableSlot = NO_SLOT;
 	private int rangerTowerCooldown;
 	private int webTrapCooldown;
+	private int rangerShotsFired;
 	@Nullable
 	private BlockPos rangerPerchTop;
 	private boolean rangerTowerSpent;
@@ -733,6 +735,12 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 				1.7F,
 				12 - level.getDifficulty().getId() * 3
 		);
+		if (this.combatRole == CombatRole.RANGER && target instanceof LivingEntity livingTarget) {
+			this.rangerShotsFired++;
+			if (this.rangerShotsFired % 3 == 0) {
+				HomingArrowController.track(level, arrow, livingTarget);
+			}
+		}
 		this.playSound(SoundEvents.SKELETON_SHOOT, 1.0F, 1.0F / (this.getRandom().nextFloat() * 0.4F + 0.8F));
 	}
 
@@ -1550,6 +1558,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		output.putInt("ConsumableCooldown", this.consumableCooldown);
 		output.putInt("RangerTowerCooldown", this.rangerTowerCooldown);
 		output.putInt("WebTrapCooldown", this.webTrapCooldown);
+		output.putInt("RangerShotsFired", this.rangerShotsFired);
 		output.putBoolean("RangerTowerSpent", this.rangerTowerSpent);
 		if (this.rangerPerchTop != null) {
 			output.store("RangerPerchTop", BlockPos.CODEC, this.rangerPerchTop);
@@ -1581,6 +1590,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		);
 		this.rangerTowerCooldown = Math.max(0, input.getIntOr("RangerTowerCooldown", 0));
 		this.webTrapCooldown = Math.max(0, input.getIntOr("WebTrapCooldown", 0));
+		this.rangerShotsFired = Math.max(0, input.getIntOr("RangerShotsFired", 0));
 		this.rangerTowerSpent = input.getBooleanOr("RangerTowerSpent", false);
 		this.rangerPerchTop = input.read("RangerPerchTop", BlockPos.CODEC).orElse(null);
 

@@ -1,6 +1,7 @@
 package dev.evanklein.battlesoldiers;
 
 import dev.evanklein.battlesoldiers.battle.BattleTeams;
+import dev.evanklein.battlesoldiers.battle.HomingArrowController;
 import dev.evanklein.battlesoldiers.battle.SquadCoordinator;
 import dev.evanklein.battlesoldiers.command.SoldierCommands;
 import dev.evanklein.battlesoldiers.entity.ModEntities;
@@ -17,6 +18,7 @@ public final class BattleSoldiersMod implements ModInitializer {
 		ModEntities.register();
 		BattleTeams.register();
 		SquadCoordinator.register();
+		HomingArrowController.register();
 		SoldierCommands.register();
 		LOGGER.info("Battle Soldiers initialized");
 	}

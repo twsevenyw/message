@@ -169,15 +169,15 @@ public final class SoldierCombatGoal extends Goal {
 		boolean mace = weapon.is(Items.MACE) || weapon.getItem() instanceof MaceItem;
 		boolean kinetic = weapon.has(DataComponents.KINETIC_WEAPON);
 		boolean genericWeapon = weapon.has(DataComponents.WEAPON) || kinetic;
+		boolean severeFall = target.fallDistance > 5.0F;
 		double verticalDistance = target.getY() - this.soldier.getY();
 		double deltaX = target.getX() - this.soldier.getX();
 		double deltaZ = target.getZ() - this.soldier.getZ();
 		double horizontalDistance = deltaX * deltaX + deltaZ * deltaZ;
 		boolean descending = target.getDeltaMovement().y < -0.05 || target.fallDistance > 0.5F;
-		boolean dangerous = genericWeapon
-				&& verticalDistance >= 2.5
+		boolean dangerous = verticalDistance >= 2.5
 				&& horizontalDistance <= 20.25
-				&& (descending || mace || kinetic);
+				&& (severeFall || genericWeapon && (descending || mace || kinetic));
 		if (!dangerous) {
 			return false;
 		}
@@ -305,7 +305,7 @@ public final class SoldierCombatGoal extends Goal {
 		}
 
 		boolean canSee = this.soldier.getSensing().hasLineOfSight(target);
-		boolean antiAirMace = target.getMainHandItem().is(Items.MACE)
+		boolean antiAirMace = (target.getMainHandItem().is(Items.MACE) || target.fallDistance > 5.0F)
 				&& target.getY() - this.soldier.getY() >= 2.0;
 		if (antiAirMace) {
 			this.soldier.equipBow();

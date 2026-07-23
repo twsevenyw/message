@@ -27,7 +27,7 @@ public final class TrapperWebGoal extends Goal {
 	public boolean canUse() {
 		LivingEntity target = this.soldier.getTarget();
 		boolean airborneMace = target != null
-				&& target.getMainHandItem().is(Items.MACE)
+				&& (target.getMainHandItem().is(Items.MACE) || target.fallDistance > 5.0F)
 				&& target.getY() - this.soldier.getY() >= 2.5;
 		if (this.soldier.getCombatRole() != CombatRole.TRAPPER
 				|| this.soldier.getGearLevel().id() < 4
@@ -74,7 +74,8 @@ public final class TrapperWebGoal extends Goal {
 
 	private BlockPos predictTrapPosition(LivingEntity target) {
 		Vec3 movement = target.getDeltaMovement();
-		if (!target.onGround() && target.getMainHandItem().is(Items.MACE)) {
+		if (!target.onGround()
+				&& (target.getMainHandItem().is(Items.MACE) || target.fallDistance > 5.0F)) {
 			double ticks = Math.max(2.0, Math.min(10.0, (target.getY() - this.soldier.getY()) / 0.7));
 			Vec3 lead = target.position().add(movement.scale(ticks));
 			ServerLevel level = getServerLevel(this.soldier);
