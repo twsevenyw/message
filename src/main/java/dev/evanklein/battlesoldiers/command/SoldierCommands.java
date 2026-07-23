@@ -245,6 +245,7 @@ public final class SoldierCommands {
 		int reactiveBlocks = 0;
 		int criticalHits = 0;
 		int escapeBlocks = 0;
+		int homingShots = 0;
 		for (BattleSoldierEntity soldier : getSoldiers(context.getSource().getServer())) {
 			switch (soldier.getSquad()) {
 				case TRAINING -> training++;
@@ -260,6 +261,7 @@ public final class SoldierCommands {
 			reactiveBlocks += soldier.getReactiveShieldUses();
 			criticalHits += soldier.getCriticalHits();
 			escapeBlocks += soldier.getEscapeBlocksPlaced();
+			homingShots += soldier.getHomingShotsFired();
 		}
 
 		int total = training + red + blue;
@@ -271,6 +273,7 @@ public final class SoldierCommands {
 		int reactiveBlocksResult = reactiveBlocks;
 		int criticalHitsResult = criticalHits;
 		int escapeBlocksResult = escapeBlocks;
+		int homingShotsResult = homingShots;
 		context.getSource().sendSuccess(
 				() -> Component.translatable(
 						"commands.battle_soldiers.status",
@@ -282,7 +285,8 @@ public final class SoldierCommands {
 						blockingResult,
 						reactiveBlocksResult,
 						criticalHitsResult,
-						escapeBlocksResult
+						escapeBlocksResult,
+						homingShotsResult
 				),
 				false
 		);

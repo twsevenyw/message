@@ -112,6 +112,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	private int rangerTowerCooldown;
 	private int webTrapCooldown;
 	private int rangerShotsFired;
+	private int homingShotsFired;
 	@Nullable
 	private BlockPos rangerPerchTop;
 	private boolean rangerTowerSpent;
@@ -565,6 +566,10 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		return this.criticalHits;
 	}
 
+	public int getHomingShotsFired() {
+		return this.homingShotsFired;
+	}
+
 	public void recordEscapeBlock() {
 		this.escapeBlocksPlaced++;
 	}
@@ -739,6 +744,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 			this.rangerShotsFired++;
 			if (this.rangerShotsFired % 3 == 0) {
 				HomingArrowController.track(level, arrow, livingTarget);
+				this.homingShotsFired++;
 			}
 		}
 		this.playSound(SoundEvents.SKELETON_SHOOT, 1.0F, 1.0F / (this.getRandom().nextFloat() * 0.4F + 0.8F));
@@ -1559,6 +1565,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		output.putInt("RangerTowerCooldown", this.rangerTowerCooldown);
 		output.putInt("WebTrapCooldown", this.webTrapCooldown);
 		output.putInt("RangerShotsFired", this.rangerShotsFired);
+		output.putInt("HomingShotsFired", this.homingShotsFired);
 		output.putBoolean("RangerTowerSpent", this.rangerTowerSpent);
 		if (this.rangerPerchTop != null) {
 			output.store("RangerPerchTop", BlockPos.CODEC, this.rangerPerchTop);
@@ -1591,6 +1598,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		this.rangerTowerCooldown = Math.max(0, input.getIntOr("RangerTowerCooldown", 0));
 		this.webTrapCooldown = Math.max(0, input.getIntOr("WebTrapCooldown", 0));
 		this.rangerShotsFired = Math.max(0, input.getIntOr("RangerShotsFired", 0));
+		this.homingShotsFired = Math.max(0, input.getIntOr("HomingShotsFired", 0));
 		this.rangerTowerSpent = input.getBooleanOr("RangerTowerSpent", false);
 		this.rangerPerchTop = input.read("RangerPerchTop", BlockPos.CODEC).orElse(null);
 
