@@ -34,6 +34,7 @@ public final class SoldierCombatGoal extends Goal {
 	private int shieldTicks;
 	private int shieldCooldown;
 	private int bowCooldown;
+	private int rangerOutOfRangeTicks;
 	private int strafeTicks;
 	private boolean strafeClockwise;
 	private boolean critJump;
@@ -297,6 +298,18 @@ public final class SoldierCombatGoal extends Goal {
 		double distance = deltaX * deltaX + deltaZ * deltaZ;
 		double bowRange = Math.min(30.0, 14.0 + this.soldier.getGearLevel().id() * 2.0);
 		double preferredMax = bowRange * bowRange;
+
+		if (distance > preferredMax) {
+			this.rangerOutOfRangeTicks++;
+			if (this.rangerOutOfRangeTicks >= 40
+					&& this.soldier.getRangerBacklineTeleportCooldown() <= 0) {
+				this.soldier.teleportRangerToBackline(target);
+				this.rangerOutOfRangeTicks = 0;
+				return;
+			}
+		} else {
+			this.rangerOutOfRangeTicks = 0;
+		}
 
 		if (!this.soldier.hasArrows()) {
 			this.soldier.equipBackupMelee();

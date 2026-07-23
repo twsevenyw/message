@@ -29,9 +29,7 @@ public final class TrapperWebGoal extends Goal {
 		boolean airborneMace = target != null
 				&& (target.getMainHandItem().is(Items.MACE) || target.fallDistance > 5.0F)
 				&& target.getY() - this.soldier.getY() >= 2.5;
-		if (this.soldier.getCombatRole() != CombatRole.TRAPPER
-				|| this.soldier.getGearLevel().id() < 4
-				|| target == null
+		if (target == null
 				|| !target.isAlive()
 				|| !target.onGround() && !airborneMace
 				|| this.soldier.getWebTrapCooldown() > 0
@@ -58,11 +56,13 @@ public final class TrapperWebGoal extends Goal {
 					this.victim,
 					SquadCoordinator.ComboEvent.WEBBED
 			);
-			int cooldown = switch (this.soldier.getGearLevel()) {
-				case SIX -> 45;
-				case FIVE -> 60;
-				default -> 80;
-			};
+			int cooldown = this.soldier.getCombatRole() == CombatRole.TRAPPER
+					? switch (this.soldier.getGearLevel()) {
+						case SIX -> 45;
+						case FIVE -> 60;
+						default -> 80;
+					}
+					: 140;
 			this.soldier.setWebTrapCooldown(cooldown);
 		}
 	}

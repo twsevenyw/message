@@ -81,6 +81,7 @@ import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.level.gamerules.GameRules;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.level.portal.TeleportTransition;
@@ -113,6 +114,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	private int webTrapCooldown;
 	private int rangerShotsFired;
 	private int homingShotsFired;
+	private int rangerBacklineTeleportCooldown;
 	@Nullable
 	private BlockPos rangerPerchTop;
 	private boolean rangerTowerSpent;
@@ -227,6 +229,8 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 			};
 			this.addToInventory(new ItemStack(Items.COBWEB, webs));
 			this.addToInventory(this.randomizedStack(this.gearLevel.axeWeapon()));
+		} else {
+			this.addToInventory(new ItemStack(Items.COBWEB, 3 + this.getRandom().nextInt(3)));
 		}
 		if (this.combatRole == CombatRole.VANGUARD) {
 			this.addToInventory(this.randomizedStack(this.gearLevel.axeWeapon()));
@@ -292,6 +296,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		}
 		this.addRandomPotions();
 		this.applyTierSixEnchantments();
+		this.enchantRangerBows();
 
 		this.configureGuaranteedDrops();
 		this.setCanPickUpLoot(true);
@@ -375,6 +380,26 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		}
 		for (int slot = 0; slot < this.soldierInventory.getContainerSize(); slot++) {
 			this.enchantTierSixStack(this.soldierInventory.getItem(slot), enchantments);
+		}
+	}
+
+	private void enchantRangerBows() {
+		if (this.combatRole != CombatRole.RANGER || !(this.level() instanceof ServerLevel level)) {
+			return;
+		}
+		HolderLookup.RegistryLookup<Enchantment> enchantments =
+				level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
+		Holder<Enchantment> power = enchantments.getOrThrow(Enchantments.POWER);
+		for (ItemStack stack : new ItemStack[] {this.getMainHandItem(), this.getOffhandItem()}) {
+			if (stack.is(Items.BOW)) {
+				this.applyEnchant(stack, power, 5);
+			}
+		}
+		for (int slot = 0; slot < this.soldierInventory.getContainerSize(); slot++) {
+			ItemStack stack = this.soldierInventory.getItem(slot);
+			if (stack.is(Items.BOW)) {
+				this.applyEnchant(stack, power, 5);
+			}
 		}
 	}
 
@@ -1229,6 +1254,74 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		return this.isHoldingRangerPerch();
 	}
 
+	public int getRangerBacklineTeleportCooldown() {
+		return this.rangerBacklineTeleportCooldown;
+	}
+
+	public boolean teleportRangerToBackline(LivingEntity target) {
+		if (!(this.level() instanceof ServerLevel level)
+				|| this.combatRole != CombatRole.RANGER
+				|| this.rangerBacklineTeleportCooldown > 0) {
+			return false;
+		}
+		Vec3 centroid = Vec3.ZERO;
+		int allies = 0;
+		for (BattleSoldierEntity ally : level.getEntitiesOfClass(
+				BattleSoldierEntity.class,
+				this.getBoundingBox().inflate(64.0),
+				ally -> ally != this && ally.isAlive() && ally.getSquad() == this.squad
+		)) {
+			centroid = centroid.add(ally.position());
+			allies++;
+		}
+		if (allies == 0) {
+			centroid = this.position();
+		} else {
+			centroid = centroid.scale(1.0 / allies);
+		}
+
+		Vec3 away = centroid.subtract(target.position());
+		away = new Vec3(away.x, 0.0, away.z);
+		if (away.lengthSqr() < 0.01) {
+			away = this.position().subtract(target.position());
+			away = new Vec3(away.x, 0.0, away.z);
+		}
+		if (away.lengthSqr() < 0.01) {
+			away = new Vec3(1.0, 0.0, 0.0);
+		}
+		Vec3 base = centroid.add(away.normalize().scale(6.0));
+		for (int offsetX = -2; offsetX <= 2; offsetX++) {
+			for (int offsetZ = -2; offsetZ <= 2; offsetZ++) {
+				BlockPos xz = BlockPos.containing(base.x + offsetX, 0.0, base.z + offsetZ);
+				BlockPos feet = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, xz);
+				Vec3 destination = Vec3.atBottomCenterOf(feet);
+				AABB box = this.getDimensions(this.getPose()).makeBoundingBox(destination);
+				if (!level.getWorldBorder().isWithinBounds(box) || !level.noCollision(this, box)) {
+					continue;
+				}
+				Entity teleported = this.teleport(new TeleportTransition(
+						level,
+						destination,
+						Vec3.ZERO,
+						this.getYRot(),
+						this.getXRot(),
+						TeleportTransition.DO_NOTHING
+				));
+				if (teleported != null) {
+					teleported.resetFallDistance();
+					teleported.setDeltaMovement(Vec3.ZERO);
+					this.getNavigation().stop();
+					this.rangerPerchTop = null;
+					this.rangerTowerSpent = false;
+					this.rangerBacklineTeleportCooldown = 120;
+					return true;
+				}
+			}
+		}
+		this.rangerBacklineTeleportCooldown = 40;
+		return false;
+	}
+
 	public int getWebTrapCooldown() {
 		return this.webTrapCooldown;
 	}
@@ -1407,6 +1500,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		switch (this.combatRole) {
 			case RANGER -> {
 				this.ensureRoleWeapon(Items.BOW);
+				this.enchantRangerBows();
 				this.ensureInventoryCount(Items.ARROW, 32);
 				this.ensureInventoryCount(Items.COBBLESTONE, 16);
 				this.ensureInventoryCount(Items.OAK_PLANKS, 8);
@@ -1521,6 +1615,9 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 			if (this.rangerTowerCooldown > 0) {
 				this.rangerTowerCooldown--;
 			}
+			if (this.rangerBacklineTeleportCooldown > 0) {
+				this.rangerBacklineTeleportCooldown--;
+			}
 			if (this.webTrapCooldown > 0) {
 				this.webTrapCooldown--;
 			}
@@ -1566,6 +1663,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		output.putInt("WebTrapCooldown", this.webTrapCooldown);
 		output.putInt("RangerShotsFired", this.rangerShotsFired);
 		output.putInt("HomingShotsFired", this.homingShotsFired);
+		output.putInt("RangerBacklineTeleportCooldown", this.rangerBacklineTeleportCooldown);
 		output.putBoolean("RangerTowerSpent", this.rangerTowerSpent);
 		if (this.rangerPerchTop != null) {
 			output.store("RangerPerchTop", BlockPos.CODEC, this.rangerPerchTop);
@@ -1599,6 +1697,8 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		this.webTrapCooldown = Math.max(0, input.getIntOr("WebTrapCooldown", 0));
 		this.rangerShotsFired = Math.max(0, input.getIntOr("RangerShotsFired", 0));
 		this.homingShotsFired = Math.max(0, input.getIntOr("HomingShotsFired", 0));
+		this.rangerBacklineTeleportCooldown =
+				Math.max(0, input.getIntOr("RangerBacklineTeleportCooldown", 0));
 		this.rangerTowerSpent = input.getBooleanOr("RangerTowerSpent", false);
 		this.rangerPerchTop = input.read("RangerPerchTop", BlockPos.CODEC).orElse(null);
 
