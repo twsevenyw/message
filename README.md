@@ -15,7 +15,7 @@ Install the mod and Fabric API in the `mods` folder. Multiplayer servers and con
 
 ## Download
 
-[Download Battle Soldiers 2.4.0](releases/battle-soldiers-2.4.0.jar?raw=1)
+[Download Battle Soldiers 2.5.0](releases/battle-soldiers-2.5.0.jar?raw=1)
 
 ## Quick start
 
@@ -91,6 +91,7 @@ Gear tiers improve equipment and tactical timing—not health. Every tier stays 
 ## AI behavior
 
 - Every soldier owns a persistent 36-slot inventory containing its actual blocks, arrows, backup weapons, food, golden apples, shields, totems, and potions.
+- Every non-Trapper carries 3–5 finite webs and uses the same predictive trapping AI; dedicated Trappers retain larger unlimited reserves.
 - Every class continuously replenishes its critical role supplies: Ranger arrows/blocks, Trapper webs, Medic/Alchemist potions, Ender pearls, Engineer materials, Demolitionist TNT, and required role weapons.
 - Squads share target intelligence, threat rankings, frontline state, and learned player habits through a server-side blackboard.
 - Only a tier-scaled number of melee soldiers may wind up at once; excess soldiers rotate into stable replacement and flank positions instead of dogpiling.
@@ -121,6 +122,8 @@ Gear tiers improve equipment and tactical timing—not health. Every tier stays 
 - Every melee class predicts moving targets and attempts telegraphed jump criticals; Brutes lunge for 1.5× crits while other classes use lighter 1.25× crits.
 - Pursuit leads a target's current velocity and continues tracking during attack windups, making simple circle-strafing less effective without returning to extreme speed.
 - Rangers consume finite arrows, build one owned tower per engagement, and hold that perch even when a target moves far away or briefly leaves targeting range.
+- Every Ranger bow is maintained at Power V regardless of gear tier.
+- Rangers outside bow range for two seconds teleport to a collision-checked backline position behind their allied pack, resetting velocity and fall distance.
 - Every third Ranger arrow is a no-gravity homing shot that continuously steers toward the target's predicted center.
 - Ground Rangers detect surviving frontline allies; once the melee line is gone they stop endless kiting, advance, shoot from a stand, and use backup melee up close.
 - Tier-4/5/6 Trappers receive 5/8/12 webs with faster high-tier trap cooldowns while refusing placements near allies.
@@ -152,7 +155,7 @@ Soldier-placed cobblestone and planks are cleaned up automatically. Blocks delib
 The distributable mod is written to:
 
 ```text
-build/libs/battle-soldiers-2.4.0.jar
+build/libs/battle-soldiers-2.5.0.jar
 ```
 
 For local development:
