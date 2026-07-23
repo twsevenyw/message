@@ -73,7 +73,6 @@ public final class HomingArrowController {
 			double speed = Math.max(2.2, arrow.getDeltaMovement().length());
 			arrow.setDeltaMovement(direction.normalize().scale(speed));
 			arrow.setNoGravity(true);
-			arrow.hasImpulse = true;
 		}
 	}
 
