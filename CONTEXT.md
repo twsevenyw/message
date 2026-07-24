@@ -32,12 +32,13 @@
 | `releases/battle-soldiers-2.2.0.jar` | Previous solo-duel release |
 | `releases/battle-soldiers-2.3.0.jar` | Previous infinite-supplies/anti-Mace release |
 | `releases/battle-soldiers-2.4.0.jar` | Previous delayed-Mace/homing-Ranger release |
-| `releases/battle-soldiers-2.5.0.jar` | Current Power-V/backline/shared-web GitHub-hosted release |
+| `releases/battle-soldiers-2.5.0.jar` | Previous Power-V/backline/shared-web release |
+| `releases/battle-soldiers-2.5.1.jar` | Current armor-durability GitHub-hosted release |
 
 ## Current State
 - Complete implementation is on `cursor/battle-soldiers-mod-1918`; draft PR #1 targets `main`.
 - `/soldiers <count> <gear 1-6>` and advanced battle/team/join/clear/status subcommands are implemented.
-- Version 2.5.0 uses a custom `Monster` entity and unified combat state machine; no vanilla zombie, melee, or bow combat goals remain.
+- Version 2.5.1 uses a custom `Monster` entity and unified combat state machine; no vanilla zombie, melee, or bow combat goals remain.
 - Core classes remain Vanguard, Brute, Ranger, and Trapper.
 - Rare specialists are Medic, Engineer, Lancer, Duelist, Alchemist, Ender Skirmisher, and Demolitionist; specialists are capped at 20% per squad.
 - Rare specialists have distinct role colors; the core Trapper roll was raised slightly from 12% to 14%.
@@ -58,6 +59,7 @@
 - Every Ranger bow is Power V at every tier, including replenished and old loaded bows.
 - Out-of-range Rangers teleport to a collision-checked squad backline and reset fall distance/velocity.
 - Every non-Trapper gets 3–5 finite webs and the shared predictive trap AI; Trappers retain unlimited reserves.
+- Soldier armor now uses the player equipment-damage pipeline, respects Unbreaking/bypass rules, and can break during combat.
 - Effective class movement is about 0.22–0.28, class health remains 18–22, and pursuit predicts moving targets without returning to extreme speeds.
 - Healing now always transitions from retreat to consumption; tier-4/5 soldiers carry a guaranteed healing option.
 - Shields react to explicit attack telegraphs, charged ranged weapons, and converging projectiles instead of distance timers.
@@ -70,7 +72,7 @@
 - Rangers persist one owned perch per engagement and never path, strafe, heal-retreat, build, breach, or wander off it.
 - Unsupported ground Rangers detect the loss of frontline allies and advance/fight instead of retreating indefinitely.
 - Soldiers never drop XP orbs.
-- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.5.0.jar`.
+- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.5.1.jar`.
 - A downloadable copy is staged at `/opt/cursor/artifacts/battle-soldiers-1.0.0.jar` (SHA-256 `344011d03587c796d13c037b1112eae672c0d950bcb42c1ff0d7107b635e43e1`).
 - Version 2.0.0 is also staged at `/opt/cursor/artifacts/battle-soldiers-2.0.0.jar` for direct chat delivery because the user's FortiGate policy blocks `raw.githubusercontent.com`.
 - Version 1.1.0 is committed at `releases/battle-soldiers-1.1.0.jar` with SHA-256 `627ebf2259d9be25a4a844b36646a9a43b1997065cb2b4b4ed1b154a1c80f6ab`.
@@ -85,6 +87,7 @@
 - Version 2.3.0 is committed at `releases/battle-soldiers-2.3.0.jar` with SHA-256 `a9a49b7523e03a3bc70612579659823a74c277285db7e3d893cfc5772fdab582`.
 - Version 2.4.0 is committed at `releases/battle-soldiers-2.4.0.jar` with SHA-256 `2ef5e180426ebc153ccdbf150b915de3bdff83a4867e393e171f4ff992f6765d`.
 - Version 2.5.0 is committed at `releases/battle-soldiers-2.5.0.jar` with SHA-256 `67fb7c1183ac2a91a8ee9b9eae51ca6835e04a7c2c865fbf21028f8a7cc6a8a6`.
+- Version 2.5.1 is committed at `releases/battle-soldiers-2.5.1.jar` with SHA-256 `d45b5f9c80ab014a003d13579fbe618d966056c82f5dd1f6d2922cc20486dc75`.
 - Dedicated-server checks passed for 12.5% specialist composition in a 64-soldier sample, all seven specialists, Medic consumption, Engineer fortifications, Alchemist debuffs, Lancer spears, Demolitionist TNT, squad coordination, and prior combat systems.
 - All source, documentation, Gradle wrapper files, and release JARs are committed and synchronized to the GitHub feature branch.
 - The repository's pre-existing Python encryption/web-app files remain outside the Gradle source sets and are unchanged.
@@ -127,6 +130,7 @@
 | 2026-07-23 | Make every third Ranger shot a homing arrow. | Rangers needed a predictable accuracy spike that punishes open-ground dodging without making every arrow unavoidable. |
 | 2026-07-23 | Enforce Power V for every Ranger and teleport out-of-range Rangers to the squad backline. | Low-tier Rangers lacked damage and could become irrelevant or take fall damage when the engagement moved beyond their tower range. |
 | 2026-07-23 | Give every non-Trapper 3–5 finite webs and shared trap AI. | Squads needed residual control after dedicated unlimited-web Trappers died. |
+| 2026-07-24 | Apply player-style durability damage to soldier armor. | Vanilla LivingEntity armor hooks are no-ops for mobs, so equipped soldier armor otherwise never degraded or broke. |
 
 ## Agent Activity Log
 | Date | Agent | What Changed |
@@ -149,3 +153,4 @@
 | 2026-07-23 | GPT-5.6 Sol | Added 2.3.0 infinite role supplies, rapid Ranger anti-air fire, predicted Trapper landing webs, Engineer Mace canopies, focused runtime checks, and a rebuilt artifact. |
 | 2026-07-23 | GPT-5.6 Sol | Added 2.4.0 delayed-Mace fall detection, every-third Ranger homing arrows, server tracking, persistence/telemetry, runtime checks, and a rebuilt artifact. |
 | 2026-07-23 | GPT-5.6 Sol | Added 2.5.0 universal Ranger Power V, safe pack-backline teleports, finite webs for all non-Trappers, shared trap AI, runtime checks, and a rebuilt artifact. |
+| 2026-07-24 | GPT-5.6 Sol | Added 2.5.1 player-style armor durability, Unbreaking/bypass compatibility, runtime durability proof, and a rebuilt artifact. |
