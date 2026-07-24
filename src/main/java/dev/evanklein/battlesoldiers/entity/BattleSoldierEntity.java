@@ -66,6 +66,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -1039,6 +1040,23 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		} finally {
 			attackDamage.setBaseValue(baseDamage);
 		}
+	}
+
+	@Override
+	public void hurtArmor(DamageSource damageSource, float amount) {
+		this.doHurtEquipment(
+				damageSource,
+				amount,
+				EquipmentSlot.FEET,
+				EquipmentSlot.LEGS,
+				EquipmentSlot.CHEST,
+				EquipmentSlot.HEAD
+		);
+	}
+
+	@Override
+	public void hurtHelmet(DamageSource damageSource, float amount) {
+		this.doHurtEquipment(damageSource, amount, EquipmentSlot.HEAD);
 	}
 
 	public boolean prepareCombatConsumable() {
