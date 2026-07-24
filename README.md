@@ -15,7 +15,7 @@ Install the mod and Fabric API in the `mods` folder. Multiplayer servers and con
 
 ## Download
 
-[Download Battle Soldiers 2.5.0](releases/battle-soldiers-2.5.0.jar?raw=1)
+[Download Battle Soldiers 2.5.1](releases/battle-soldiers-2.5.1.jar?raw=1)
 
 ## Quick start
 
@@ -133,6 +133,7 @@ Gear tiers improve equipment and tactical timing—not health. Every tier stays 
 - Soldiers detect opponents behind nearby obstacles, approach the reachable face, show block-breaking cracks, and breach blocks according to gear capability.
 - Soldiers only place blocks for a detected gap, ranged cover, or an elevation step—not randomly. Placed cobblestone/planks are tracked and cleaned up automatically.
 - Equipment, inventory slots, role, squad, cooldowns, and placed-block records persist across saves.
+- Soldier armor loses durability from incoming armor-affected damage exactly like player armor, respects Unbreaking, and can break during combat.
 - Soldiers drop their worn equipment and remaining inventory on death.
 - Soldiers never drop experience orbs, preventing mid-fight Mending repairs.
 - The red and blue squads fight each other. Neutral players can spectate; players who join a squad become valid targets only for the opposing squad.
@@ -155,7 +156,7 @@ Soldier-placed cobblestone and planks are cleaned up automatically. Blocks delib
 The distributable mod is written to:
 
 ```text
-build/libs/battle-soldiers-2.5.0.jar
+build/libs/battle-soldiers-2.5.1.jar
 ```
 
 For local development:
