@@ -52,3 +52,9 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Gradle / Fabric
+.gradle/
+build/
+run/
+out/

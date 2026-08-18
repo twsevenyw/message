@@ -1,0 +1,27 @@
+{
+	"schemaVersion": 1,
+	"id": "battle_soldiers",
+	"version": "${version}",
+	"name": "Battle Soldiers",
+	"description": "Advanced practice soldiers that fight, eat, build, breach, and battle in teams.",
+	"authors": [
+		"Evan Klein"
+	],
+	"license": "MIT",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"dev.evanklein.battlesoldiers.BattleSoldiersMod"
+		],
+		"client": [
+			"dev.evanklein.battlesoldiers.client.BattleSoldiersClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": ">=0.141.5",
+		"polymer-core": "*"
+	}
+}
