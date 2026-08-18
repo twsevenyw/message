@@ -41,7 +41,8 @@
 | `releases/battle-soldiers-2.6.0.jar` | Previous config-GUI release |
 | `releases/battle-soldiers-2.7.0.jar` | Previous server-side/vanilla-client release |
 | `releases/battle-soldiers-2.7.1.jar` | Previous class-spawn release |
-| `releases/battle-soldiers-2.7.2.jar` | Current multiplayer-targeting GitHub-hosted release |
+| `releases/battle-soldiers-2.7.2.jar` | Previous multiplayer-targeting release |
+| `releases/battle-soldiers-2.7.3.jar` | Current player-movement GitHub-hosted release |
 
 ## Current State
 - Complete implementation is on `cursor/battle-soldiers-mod-1918`; draft PR #1 targets `main`.
@@ -85,6 +86,9 @@
 - Every non-Trapper gets 3–5 finite webs and the shared predictive trap AI; Trappers retain unlimited reserves.
 - Soldier armor now uses the player equipment-damage pipeline, respects Unbreaking/bypass rules, and can break during combat.
 - Effective class movement is about 0.22–0.28, class health remains 18–22, and pursuit predicts moving targets without returning to extreme speeds.
+- 2.7.3 movement layer: soldiers sprint (+30% standard modifier) whenever closing beyond ~3 blocks (never while using items, winding up, feinting, shielding, in water, or holding a Ranger perch), sprint-jump hop on open ground, and step straight up 1-block ledges (STEP_HEIGHT 1.0).
+- Close range (≤~10 blocks, LOS, ≤1.5 Y-diff) uses direct per-tick MoveControl steering with a ~1.1-block lateral weave instead of A* paths; navigation remains the fallback for obstructed/vertical approaches.
+- Knockback triggers a one-time momentum surge back toward the target (hurtTime==8, +0.22 impulse when beyond 2 blocks) plus a randomized strafe-direction reset; strafe flips use randomized intervals and post-swing spacing backpedals (-0.20 forward) turn into +0.30 re-engages as the attack readies.
 - Healing now always transitions from retreat to consumption; tier-4/5 soldiers carry a guaranteed healing option.
 - Shields react to explicit attack telegraphs, charged ranged weapons, and converging projectiles instead of distance timers.
 - Every melee class attempts predictive jump criticals; Brutes use 1.5× and other classes 1.25× total-attack multipliers.
@@ -96,7 +100,7 @@
 - Rangers persist one owned perch per engagement and never path, strafe, heal-retreat, build, breach, or wander off it.
 - Unsupported ground Rangers detect the loss of frontline allies and advance/fight instead of retreating indefinitely.
 - Soldiers never drop XP orbs.
-- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.7.2.jar`.
+- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.7.3.jar`.
 - A downloadable copy is staged at `/opt/cursor/artifacts/battle-soldiers-1.0.0.jar` (SHA-256 `344011d03587c796d13c037b1112eae672c0d950bcb42c1ff0d7107b635e43e1`).
 - Version 2.0.0 is also staged at `/opt/cursor/artifacts/battle-soldiers-2.0.0.jar` for direct chat delivery because the user's FortiGate policy blocks `raw.githubusercontent.com`.
 - Version 1.1.0 is committed at `releases/battle-soldiers-1.1.0.jar` with SHA-256 `627ebf2259d9be25a4a844b36646a9a43b1997065cb2b4b4ed1b154a1c80f6ab`.
@@ -118,6 +122,8 @@
 - 2.7.1 dedicated-server checks passed: `soldiers 1 6 duelist`, tier-1 forced Trappers, `team red 2 4 ranger`, `battle 3 5 5 brute duelist` (correct per-team roles and labels), and unlabeled random spawns; NBT confirmed forced CombatRole values with zero log errors.
 - Version 2.7.2 is committed at `releases/battle-soldiers-2.7.2.jar` with SHA-256 `7ab5a935b84ce350faedf16a4409f4bbd892e0a5a3563b54e97e641e19d63166` and staged at `/opt/cursor/artifacts/battle-soldiers-2.7.2.jar`.
 - 2.7.2 two-player reproduction passed: a squad locked on an unkillable fake player split to attack a vanilla-protocol client the moment it swung at them (3/4 switched, victim still alive), fresh spawns beside the second player targeted it over the distant shared target, single-target rally still works, and the log stayed error-free.
+- Version 2.7.3 is committed at `releases/battle-soldiers-2.7.3.jar` with SHA-256 `a1eef31c8ac2cab9b6342c30decdcc1027f539ec27e9901941910496dce70516` and staged at `/opt/cursor/artifacts/battle-soldiers-2.7.3.jar`.
+- 2.7.3 movement checks passed: position polling showed a chasing Vanguard covering ~5.5-6 blocks/s with sprinting=true and mid-hop airborne samples, sprint dropping to false inside strike range with circling positions, and a clean 5v5 battle with zero log errors.
 - 2.7.0 checks passed with a real vanilla-protocol client (node minecraft-protocol, offline auth): joined through Fabric+Polymer configuration (answering the config-phase ping like a real vanilla client), reached PLAY with no registry-sync kick, received soldiers as `minecraft:zombie` spawns, was killed by "Training Vanguard • Gear 3", and stayed connected through a 5v5 battle; fake-player GUI regression and pre-Polymer world persistence also passed with zero log errors.
 - 2.6.0 dedicated-server checks passed: GUI click persistence, deterministic 27/30-Ranger weight test, tier-3 diamond-sword Sharpness V + Fire Aspect II override applied in-game and after restart, enchant toggle-off, override removal, golden-apple supply override, live inventory inspector, 6v6 battle regression, and debug-tree absence in release mode.
 - Dedicated-server checks passed for 12.5% specialist composition in a 64-soldier sample, all seven specialists, Medic consumption, Engineer fortifications, Alchemist debuffs, Lancer spears, Demolitionist TNT, squad coordination, and prior combat systems.
@@ -173,6 +179,7 @@
 | 2026-08-18 | Verify the vanilla-join path with a real protocol client (node minecraft-protocol 1.21.11). | Reaching PLAY state, seeing zombie-disguised soldiers, and being killed by one is the only conclusive proof of vanilla-client compatibility. |
 | 2026-08-18 | Let class-forced spawns bypass gear gating, weights, tiny-squad rules, and specialist caps. | An explicit `/soldiers 1 6 duelist` request is a sandbox tool; silently substituting a different class would be wrong. |
 | 2026-08-18 | Make shared-target adoption idle-only with a nearest-player preference. | The 4-tick forced sync locked whole squads onto one player and overrode retaliation, so a second player was ignored until the first died. |
+| 2026-08-18 | Rebuild movement around sprinting, direct steering, weaves, hops, step assist, and knockback surges. | The user identified movement as the biggest skill gap: A*-node walking with burst-only sprint read as mob-like against real PvP movement. |
 
 ## Agent Activity Log
 | Date | Agent | What Changed |
@@ -200,3 +207,4 @@
 | 2026-08-18 | Claude Fable 5 | Added 2.7.0 full server-side support: bundled Polymer, zombie wire-disguise, literal command feedback, vanilla-protocol join/combat/GUI verification, docs, and a rebuilt artifact. |
 | 2026-08-18 | Claude Fable 5 | Added 2.7.1 optional class arguments for spawn/team/battle commands with runtime verification and a rebuilt artifact. |
 | 2026-08-18 | Claude Fable 5 | Fixed 2.7.2 multiplayer tunnel vision: idle-only shared-target adoption, sticky retaliation, nearest-player preference, verified with a two-player (fake + vanilla-protocol) reproduction, and a rebuilt artifact. |
+| 2026-08-18 | Claude Fable 5 | Added 2.7.3 player-movement layer: sprint + sprint-jump chase (~5.5-6 b/s measured), direct-steer weaving approach, knockback surges, randomized strafe rhythm, spacing backpedals, step assist, runtime speed verification, and a rebuilt artifact. |

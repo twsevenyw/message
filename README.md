@@ -24,7 +24,7 @@ Joining players need **nothing installed** — a completely vanilla launcher wor
 
 ## Download
 
-[Download Battle Soldiers 2.7.2](releases/battle-soldiers-2.7.2.jar?raw=1)
+[Download Battle Soldiers 2.7.3](releases/battle-soldiers-2.7.3.jar?raw=1)
 
 ## Quick start
 
@@ -116,7 +116,7 @@ Commander, personality variants, and Crystalist are intentionally not implemente
 | 5 | Netherite/diamond pool | Eight-web Trappers, five-layer towers, guaranteed heal, and improved supplies |
 | 6 | Fully enchanted netherite | Max combat enchants, 5–7 gaps, 1–2 enchanted gaps, 2–3 totems, 12-web Trappers, and six-layer Ranger towers |
 
-Gear tiers improve equipment and tactical timing—not health. Every tier stays at its class health, and effective movement remains roughly 0.22–0.29. Tiers 1–5 carry at least 2–3 golden apples; tier 6 is the fully enchanted endgame loadout.
+Gear tiers improve equipment and tactical timing—not health. Every tier stays at its class health; base movement remains roughly 0.22–0.29 with the standard +30% sprint while closing distance. Tiers 1–5 carry at least 2–3 golden apples; tier 6 is the fully enchanted endgame loadout.
 
 ## AI behavior
 
@@ -130,6 +130,11 @@ Gear tiers improve equipment and tactical timing—not health. Every tier stays 
 - Consumables are selected by utility scores based on missing health, danger, effects, distance, and learned habits.
 - Terrain choices compare bridge, cover, and stair utility rather than executing the first fixed rule.
 - Non-shield soldiers calculate projectile closest approach and dodge laterally into collision-checked positions.
+- Soldiers sprint like players when closing distance, complete with sprint-jump hops on open ground, and drop sprint inside strike range for controlled strafing.
+- Close-range approaches use direct per-tick steering with a lateral weave instead of pathfinding node-hops, so soldiers arc in like strafing players rather than walking straight mob lines.
+- Knockback is answered with an immediate momentum surge back into the fight plus an unpredictable strafe-direction reset.
+- Strafe rhythm flips at randomized intervals; after each swing soldiers back out of trade range and surge back in as their next attack readies.
+- Soldiers step straight up single blocks (player-style step assist) instead of stopping to jump at every ledge.
 - Melee fighters choose armor/shield counters, chain timed hits around recovery windows, and use third-hit finishers.
 - Solo engagements bypass group rotations/flanks, scan targets every tick, shorten windups/recovery, and maintain movement during cooldowns.
 - Tiny squads only roll Vanguard, Brute, or Duelist, preventing passive support/Ranger 1v1 opponents.
@@ -189,7 +194,7 @@ Soldier-placed cobblestone and planks are cleaned up automatically. Blocks delib
 The distributable mod is written to:
 
 ```text
-build/libs/battle-soldiers-2.7.2.jar
+build/libs/battle-soldiers-2.7.3.jar
 ```
 
 For local development:
