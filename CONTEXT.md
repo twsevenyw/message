@@ -45,7 +45,8 @@
 | `releases/battle-soldiers-2.7.3.jar` | Previous player-movement release |
 | `releases/battle-soldiers-2.7.4.jar` | Previous aggression-fix release |
 | `releases/battle-soldiers-2.7.5.jar` | Previous engagement-discipline release |
-| `releases/battle-soldiers-2.7.6.jar` | Current web/water-counterplay GitHub-hosted release |
+| `releases/battle-soldiers-2.7.6.jar` | Previous web/water-counterplay release |
+| `releases/battle-soldiers-2.7.7.jar` | Current W-tap/combo GitHub-hosted release |
 
 ## Current State
 - Complete implementation is on `cursor/battle-soldiers-mod-1918`; draft PR #1 targets `main`.
@@ -79,6 +80,8 @@
 - Trapper webs are effectively infinite: initial 5/8/12 (tier 4/5/6) plus a replenish floor of 4/4/4/6/10/14 every ~5 ticks; the only cap is 48 concurrently placed blocks per soldier (webs release on death). Non-Trappers carry finite 3-5.
 - 2.7.6 anti-exploit counterplay: webbed soldiers keep attacking anything in reach and destroy the web they're stuck in (4-8 ticks by tier, block-crack progress shown, `mob_griefing`-gated); soldiers in water skip all footwork (disengage/poke-wait/sidestep), wade directly at the predicted target at 1.25 speed, attack on cadence, and jump only on collision or an elevated target.
 - 2.7.6 solo tuning: solo patience base 6→4 with narrower variance, disengage arcs abort when the target flees past 5.5 blocks, and soldiers never disengage off a target at ≤7 effective health.
+- 2.7.7 W-tap: hits landed while sprinting or with approach momentum (horizontal speed >0.014 dist²/t toward target, dot >0.5) apply +0.42 knockback away from the soldier, then sprint resets for one tick (sprintBurstTicks=0 + setSprinting(false)) so the next hit is a fresh sprint hit; `comboChainHits` counts these (debug `targets` dump shows `combo=`).
+- 2.7.7 combo mode: a landed hit rolls role-based continuation (Duelist/Brute 80%, frontline 60%, support 45%, +15% solo; near-dead targets always chased, 4-hit cap) → attackCooldown 11-12 (matched to the 10-tick hurt window), comboChaseTicks 26: full-sprint direct pursuit of the predicted position, no weave/windup, instant click in reach; combo ends on timeout/escape (>5.5 blocks)/death → full recovery + disengage arc.
 - Squads learn shielding, ranged use, strafing, Maces, crystals, and elevation; utility and prediction adapt to those habits.
 - Consumables use utility scoring, terrain uses scored bridge/cover/stair plans, and non-shield units directionally dodge converging projectiles.
 - Individual combat now includes armor-aware weapon choice, hit combos, sprint resets, feints, and incoming-damage prediction.
@@ -109,7 +112,7 @@
 - Rangers persist one owned perch per engagement and never path, strafe, heal-retreat, build, breach, or wander off it.
 - Unsupported ground Rangers detect the loss of frontline allies and advance/fight instead of retreating indefinitely.
 - Soldiers never drop XP orbs.
-- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.7.6.jar`.
+- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.7.7.jar`.
 - A downloadable copy is staged at `/opt/cursor/artifacts/battle-soldiers-1.0.0.jar` (SHA-256 `344011d03587c796d13c037b1112eae672c0d950bcb42c1ff0d7107b635e43e1`).
 - Version 2.0.0 is also staged at `/opt/cursor/artifacts/battle-soldiers-2.0.0.jar` for direct chat delivery because the user's FortiGate policy blocks `raw.githubusercontent.com`.
 - Version 1.1.0 is committed at `releases/battle-soldiers-1.1.0.jar` with SHA-256 `627ebf2259d9be25a4a844b36646a9a43b1997065cb2b4b4ed1b154a1c80f6ab`.
@@ -139,6 +142,8 @@
 - 2.7.5 duel-rhythm telemetry: 0.5s position sampling of a solo duelist showed in-close swings at ~1 block, disengage arcs out to 3-4.5 blocks, full-quadrant circling around the target, and mid-fight hops; 6 duelists sustained 7 crits/12s against an immune dummy (paced pressure vs the old 27/13s swarm); a 5v5 battle ran with shields/crits/homing shots and zero log errors.
 - Version 2.7.6 is committed at `releases/battle-soldiers-2.7.6.jar` with SHA-256 `d0dea12bddbb07f201cdb0ff4c847599d14f2b5bac69e415ec1ddfa3431a3376` and staged at `/opt/cursor/artifacts/battle-soldiers-2.7.6.jar`.
 - 2.7.6 exploit checks: a duelist ringed by four cobwebs destroyed all four while continuing to land crits (zero WEB_ALIVE probes after 10s); in a triple-source flooded arena it landed 8 crits/15s wading through water (previous build: 0); dry 5v5 battle regression healthy with zero log errors.
+- Version 2.7.7 is committed at `releases/battle-soldiers-2.7.7.jar` with SHA-256 `796add0c6f8b180c514ffb04e1a5e178a23ef2ed21e2c3de58233c6003b91531` and staged at `/opt/cursor/artifacts/battle-soldiers-2.7.7.jar`.
+- 2.7.7 checks: a solo tier-4 duelist chained 7 sprint-knockback combo hits in ~18s (one sample caught mid-sprint-chase); in a 5v5 battle every surviving soldier logged 3-7 combo-chain hits; zero log errors. Fake players don't visibly move from knockback (client-authoritative motion packets), but the counter increments only when the knockback call fires.
 - 2.7.0 checks passed with a real vanilla-protocol client (node minecraft-protocol, offline auth): joined through Fabric+Polymer configuration (answering the config-phase ping like a real vanilla client), reached PLAY with no registry-sync kick, received soldiers as `minecraft:zombie` spawns, was killed by "Training Vanguard • Gear 3", and stayed connected through a 5v5 battle; fake-player GUI regression and pre-Polymer world persistence also passed with zero log errors.
 - 2.6.0 dedicated-server checks passed: GUI click persistence, deterministic 27/30-Ranger weight test, tier-3 diamond-sword Sharpness V + Fire Aspect II override applied in-game and after restart, enchant toggle-off, override removal, golden-apple supply override, live inventory inspector, 6v6 battle regression, and debug-tree absence in release mode.
 - Dedicated-server checks passed for 12.5% specialist composition in a 64-soldier sample, all seven specialists, Medic consumption, Engineer fortifications, Alchemist debuffs, Lancer spears, Demolitionist TNT, squad coordination, and prior combat systems.
@@ -198,6 +203,7 @@
 | 2026-08-18 | Validate melee reservations against live target + activity touches and release slots on target change. | Idle-only target adoption made switches common; leaked reservation slots filled the attacker cap with ghosts, leaving squads (notably Duelists) circling webbed players without swinging. |
 | 2026-08-18 | Add an engagement-discipline layer (hit-and-run passes, opening respect, sidesteps, back-circling, walking flank rings) and remove vanilla's 0.25 strafe speed. | Post-2.7.4 soldiers stormed targets on cooldown like a zombie pack; human PvP reads as passes, spacing, and openings — and all combat strafing had been running at quarter speed. |
 | 2026-08-18 | Give soldiers explicit web-break and water-wade combat modes plus solo kill-securing. | Players trivially beat outgeared soldiers by webbing or flooding them: webbed soldiers stood paralyzed and wet soldiers' footwork devolved into useless paddling. |
+| 2026-08-18 | Emulate player sprint-knockback W-taps and add a hurt-window-timed combo pursuit mode. | Mobs never receive the player sprint-knockback bonus, so soldiers could not launch targets or chain hits; combos are the core of human melee pressure. |
 
 ## Agent Activity Log
 | Date | Agent | What Changed |
@@ -229,3 +235,4 @@
 | 2026-08-18 | Claude Fable 5 | Fixed 2.7.4 passive-orbit bug: reservation-slot leak repair, target-change slot release, 2.5-block windup commitment, webbed-target pressure, two-player aggression verification (27 crits/13s), a debug revive command, and a rebuilt artifact. |
 | 2026-08-18 | Claude Fable 5 | Added 2.7.5 engagement discipline: full-speed combat strafing via SoldierMoveControl, hit-and-run recovery arcs, opening-based commitment, sidestep dodges, back-circling bias, calm flank rings, cadence jitter, telemetry-verified duel rhythm, and a rebuilt artifact. |
 | 2026-08-18 | Claude Fable 5 | Added 2.7.6 web-break escape, water-wade combat, flee-abort disengages, kill-securing, shorter solo patience, verified web destruction and flooded-arena hit rates, and a rebuilt artifact. |
+| 2026-08-18 | Claude Fable 5 | Added 2.7.7 W-tap sprint knockback, hurt-window combo pursuit, combo telemetry, duel and battle verification (7 chained hits solo; 3-7 per soldier in 5v5), and a rebuilt artifact. |

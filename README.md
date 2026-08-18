@@ -24,7 +24,7 @@ Joining players need **nothing installed** — a completely vanilla launcher wor
 
 ## Download
 
-[Download Battle Soldiers 2.7.6](releases/battle-soldiers-2.7.6.jar?raw=1)
+[Download Battle Soldiers 2.7.7](releases/battle-soldiers-2.7.7.jar?raw=1)
 
 ## Quick start
 
@@ -134,6 +134,8 @@ Gear tiers improve equipment and tactical timing—not health. Every tier stays 
 - Soldiers sprint like players when closing distance, complete with sprint-jump hops on open ground, and drop sprint inside strike range for controlled strafing.
 - Combat footwork runs at real player pace: a custom move controller removes vanilla's hardcoded quarter-speed mob strafing for all circling, spacing, kiting, and disengage movement.
 - Melee fights follow hit-and-run passes: swing (or finish a short combo), arc out of trade range during recovery, then re-enter — and if you chase a disengaging soldier, it turns and fights.
+- Soldiers W-tap: hits delivered with sprint momentum carry real sprint knockback (mobs never get this natively), and the sprint state resets for one tick after each hit so the next one is a fresh sprint hit.
+- Landing a hit can open a genuine combo: the soldier sprint-chases your knockback and clicks again the instant your 10-tick hurt window ends, chaining up to 4 hits before resting through a full recovery. Duelists and Brutes chain hardest; a nearly-dead target is always chased down.
 - Soldiers respect a ready, aimed opponent: they hold poke range and circle until you swing, look away, or use an item — then commit instantly (patience is tier-scaled and they eventually force the issue).
 - Shieldless soldiers sidestep incoming swings with a quick lateral dash on a tier-scaled reaction cooldown.
 - Webbed soldiers fight like webbed players: they keep swinging at anything in reach while ripping the web out in under a second (tier-scaled, respects `mob_griefing`).
@@ -203,7 +205,7 @@ Soldier-placed cobblestone and planks are cleaned up automatically. Blocks delib
 The distributable mod is written to:
 
 ```text
-build/libs/battle-soldiers-2.7.6.jar
+build/libs/battle-soldiers-2.7.7.jar
 ```
 
 For local development:
