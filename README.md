@@ -11,11 +11,20 @@ Battle Soldiers adds persistent, player-like AI fighters with custom class comba
 - Fabric API **0.141.5+1.21.11**
 - Java **21**
 
-Install the mod and Fabric API in the `mods` folder. Multiplayer servers and connecting players both need the mod because it registers a custom rendered entity.
+Install the mod and Fabric API in the `mods` folder **on the game that hosts the world only** (your singleplayer/LAN client or the dedicated server). Polymer is bundled inside the jar — nothing else to install.
+
+## Friends join with zero mods
+
+Joining players need **nothing installed** — a completely vanilla launcher works:
+
+- Open your world to LAN (or run a dedicated server with the mod) and they connect like any vanilla server.
+- Soldiers appear to vanilla clients as zombies wearing the real equipment, with live class names, health, and squad colors.
+- Every feature works for them: soldiers target and fight vanilla players, all items/drops are vanilla, and the config GUI is a standard chest screen any client can use.
+- Players who *do* install the mod see the proper soldier model instead of the zombie disguise; both kinds of players can share the same world.
 
 ## Download
 
-[Download Battle Soldiers 2.6.0](releases/battle-soldiers-2.6.0.jar?raw=1)
+[Download Battle Soldiers 2.7.0](releases/battle-soldiers-2.7.0.jar?raw=1)
 
 ## Quick start
 
@@ -151,6 +160,7 @@ Gear tiers improve equipment and tactical timing—not health. Every tier stays 
 - Totem-equipped soldiers use vanilla Totem of Undying mechanics and automatically move a spare shield or totem into the offhand afterward.
 - Soldiers detect opponents behind nearby obstacles, approach the reachable face, show block-breaking cracks, and breach blocks according to gear capability.
 - Soldiers only place blocks for a detected gap, ranged cover, or an elevation step—not randomly. Placed cobblestone/planks are tracked and cleaned up automatically.
+- The mod is fully server-side (Polymer): vanilla clients see soldiers as equipped zombies while all AI, classes, and combat logic run on the host.
 - Class spawn weights and every tier's gear/enchant/supply overrides come from `config/battle-soldiers.json`, fully editable through the in-game GUI.
 - Equipment, inventory slots, role, squad, cooldowns, and placed-block records persist across saves.
 - Soldier armor loses durability from incoming armor-affected damage exactly like player armor, respects Unbreaking, and can break during combat.
@@ -176,7 +186,7 @@ Soldier-placed cobblestone and planks are cleaned up automatically. Blocks delib
 The distributable mod is written to:
 
 ```text
-build/libs/battle-soldiers-2.6.0.jar
+build/libs/battle-soldiers-2.7.0.jar
 ```
 
 For local development:

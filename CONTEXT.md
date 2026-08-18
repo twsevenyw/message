@@ -38,10 +38,15 @@
 | `releases/battle-soldiers-2.4.0.jar` | Previous delayed-Mace/homing-Ranger release |
 | `releases/battle-soldiers-2.5.0.jar` | Previous Power-V/backline/shared-web release |
 | `releases/battle-soldiers-2.5.1.jar` | Previous armor-durability release |
-| `releases/battle-soldiers-2.6.0.jar` | Current config-GUI GitHub-hosted release |
+| `releases/battle-soldiers-2.6.0.jar` | Previous config-GUI release |
+| `releases/battle-soldiers-2.7.0.jar` | Current server-side/vanilla-client GitHub-hosted release |
 
 ## Current State
 - Complete implementation is on `cursor/battle-soldiers-mod-1918`; draft PR #1 targets `main`.
+- Version 2.7.0 makes the mod fully server-side via Polymer 0.15.2 (bundled jar-in-jar): vanilla clients join with zero mods installed.
+- `BattleSoldierEntity implements PolymerEntity` and is disguised as `minecraft:zombie` on the wire (matching 0.6x1.95 hitbox); `PolymerEntityUtils.registerType` hides the type from vanilla-client registry sync; saves keep the real `battle_soldiers:soldier` id so persistence is unaffected.
+- All command feedback is literal text (no translatable keys), so vanilla clients read it correctly; the GUI was already vanilla chest menus and needs nothing client-side.
+- Clients that do install the mod still see the real entity and custom renderer; both client kinds share one world.
 - `/soldiers <count> <gear 1-6>` and advanced battle/team/join/clear/status subcommands are implemented.
 - Version 2.6.0 adds `/soldiers menu` (alias `config`), `/soldiers info [class]`, a JSON-persisted `SoldierConfig`, and a full server-side chest-GUI config suite.
 - All 11 class spawn chances are config weights edited in the GUI; defaults are Vanguard 38, Brute 26, Ranger 7.5, Trapper 14, Duelist 3.5, Medic/Engineer/Lancer/Demolitionist 2, Alchemist/Ender Skirmisher 1.5 (sums to 100).
@@ -87,7 +92,7 @@
 - Rangers persist one owned perch per engagement and never path, strafe, heal-retreat, build, breach, or wander off it.
 - Unsupported ground Rangers detect the loss of frontline allies and advance/fight instead of retreating indefinitely.
 - Soldiers never drop XP orbs.
-- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.6.0.jar`.
+- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.7.0.jar`.
 - A downloadable copy is staged at `/opt/cursor/artifacts/battle-soldiers-1.0.0.jar` (SHA-256 `344011d03587c796d13c037b1112eae672c0d950bcb42c1ff0d7107b635e43e1`).
 - Version 2.0.0 is also staged at `/opt/cursor/artifacts/battle-soldiers-2.0.0.jar` for direct chat delivery because the user's FortiGate policy blocks `raw.githubusercontent.com`.
 - Version 1.1.0 is committed at `releases/battle-soldiers-1.1.0.jar` with SHA-256 `627ebf2259d9be25a4a844b36646a9a43b1997065cb2b4b4ed1b154a1c80f6ab`.
@@ -104,6 +109,8 @@
 - Version 2.5.0 is committed at `releases/battle-soldiers-2.5.0.jar` with SHA-256 `67fb7c1183ac2a91a8ee9b9eae51ca6835e04a7c2c865fbf21028f8a7cc6a8a6`.
 - Version 2.5.1 is committed at `releases/battle-soldiers-2.5.1.jar` with SHA-256 `d45b5f9c80ab014a003d13579fbe618d966056c82f5dd1f6d2922cc20486dc75`.
 - Version 2.6.0 is committed at `releases/battle-soldiers-2.6.0.jar` with SHA-256 `20359f40a1e296b180f608889cfecf54633259b908da473e20e76424b2f6b269` and staged at `/opt/cursor/artifacts/battle-soldiers-2.6.0.jar`.
+- Version 2.7.0 is committed at `releases/battle-soldiers-2.7.0.jar` with SHA-256 `591ef873b84b35c2ef09c2d93648125a90733d7192a94b43b7cfd8e482c6a22e` and staged at `/opt/cursor/artifacts/battle-soldiers-2.7.0.jar`.
+- 2.7.0 checks passed with a real vanilla-protocol client (node minecraft-protocol, offline auth): joined through Fabric+Polymer configuration (answering the config-phase ping like a real vanilla client), reached PLAY with no registry-sync kick, received soldiers as `minecraft:zombie` spawns, was killed by "Training Vanguard • Gear 3", and stayed connected through a 5v5 battle; fake-player GUI regression and pre-Polymer world persistence also passed with zero log errors.
 - 2.6.0 dedicated-server checks passed: GUI click persistence, deterministic 27/30-Ranger weight test, tier-3 diamond-sword Sharpness V + Fire Aspect II override applied in-game and after restart, enchant toggle-off, override removal, golden-apple supply override, live inventory inspector, 6v6 battle regression, and debug-tree absence in release mode.
 - Dedicated-server checks passed for 12.5% specialist composition in a 64-soldier sample, all seven specialists, Medic consumption, Engineer fortifications, Alchemist debuffs, Lancer spears, Demolitionist TNT, squad coordination, and prior combat systems.
 - All source, documentation, Gradle wrapper files, and release JARs are committed and synchronized to the GitHub feature branch.
@@ -153,6 +160,9 @@
 | 2026-08-18 | Apply gear overrides after procedural generation and resolve weapon identity through the override item. | Guarantees the exact configured item everywhere (equipment, inventory copies, replenishment) without breaking weapon-swap AI when materials change. |
 | 2026-08-18 | Let bow overrides supersede the automatic Power V guarantee. | An explicit user-configured bow must be authoritative, including its enchantments. |
 | 2026-08-18 | Gate a fake-player click harness behind `-Dbattlesoldiers.debug=true`. | Enables real end-to-end GUI click tests on a headless server while keeping release behavior untouched. |
+| 2026-08-18 | Integrate Polymer (bundled jar-in-jar) and disguise soldiers as zombies for non-modded clients. | Fabric registry sync otherwise kicks vanilla clients over the custom entity type; the user wants friends to join without installing anything. |
+| 2026-08-18 | Replace all translatable command feedback with literal text. | Vanilla clients lack the mod's lang file and would render raw translation keys. |
+| 2026-08-18 | Verify the vanilla-join path with a real protocol client (node minecraft-protocol 1.21.11). | Reaching PLAY state, seeing zombie-disguised soldiers, and being killed by one is the only conclusive proof of vanilla-client compatibility. |
 
 ## Agent Activity Log
 | Date | Agent | What Changed |
@@ -177,3 +187,4 @@
 | 2026-07-23 | GPT-5.6 Sol | Added 2.5.0 universal Ranger Power V, safe pack-backline teleports, finite webs for all non-Trappers, shared trap AI, runtime checks, and a rebuilt artifact. |
 | 2026-07-24 | GPT-5.6 Sol | Added 2.5.1 player-style armor durability, Unbreaking/bypass compatibility, runtime durability proof, and a rebuilt artifact. |
 | 2026-08-18 | Claude Fable 5 | Added 2.6.0 config-driven spawn weights (Ranger 7.5%), `/soldiers info`, the full chest-GUI config suite (weights, tier loadouts, PvP-Legacy enchant books, supply editors, live soldier inspector), JSON persistence, a debug click harness, end-to-end runtime GUI tests, and a rebuilt artifact. |
+| 2026-08-18 | Claude Fable 5 | Added 2.7.0 full server-side support: bundled Polymer, zombie wire-disguise, literal command feedback, vanilla-protocol join/combat/GUI verification, docs, and a rebuilt artifact. |
