@@ -19,6 +19,10 @@
 | `src/main/java/dev/evanklein/battlesoldiers/battle/` | Gear tiers and scoreboard-backed squad management |
 | `src/main/java/dev/evanklein/battlesoldiers/battle/SquadCoordinator.java` | Shared targets, habits, skill profiles, melee reservations, flanks, and specialist composition caps |
 | `src/main/java/dev/evanklein/battlesoldiers/battle/TerrainPlanner.java` | Utility-scored bridge, cover, and stair placement plans |
+| `src/main/java/dev/evanklein/battlesoldiers/battle/ClassInfo.java` | Per-class documentation shared by `/soldiers info` and the GUI |
+| `src/main/java/dev/evanklein/battlesoldiers/config/SoldierConfig.java` | JSON-persisted spawn weights and per-tier gear/supply overrides |
+| `src/main/java/dev/evanklein/battlesoldiers/gui/` | Server-side chest GUI suite: main menu, class guide, weight editor, tier loadout editor, enchant-book item editor, soldier inspector |
+| `src/main/java/dev/evanklein/battlesoldiers/debug/DebugTools.java` | Fake-player GUI click harness, gated behind `-Dbattlesoldiers.debug=true` |
 | `src/client/java/dev/evanklein/battlesoldiers/client/BattleSoldiersClient.java` | Vanilla zombie renderer registration for the custom soldier type |
 | `releases/battle-soldiers-1.0.0.jar` | Previous prebuilt GitHub-hosted release |
 | `releases/battle-soldiers-1.1.0.jar` | Previous player-like-inventory release |
@@ -33,15 +37,26 @@
 | `releases/battle-soldiers-2.3.0.jar` | Previous infinite-supplies/anti-Mace release |
 | `releases/battle-soldiers-2.4.0.jar` | Previous delayed-Mace/homing-Ranger release |
 | `releases/battle-soldiers-2.5.0.jar` | Previous Power-V/backline/shared-web release |
-| `releases/battle-soldiers-2.5.1.jar` | Current armor-durability GitHub-hosted release |
+| `releases/battle-soldiers-2.5.1.jar` | Previous armor-durability release |
+| `releases/battle-soldiers-2.6.0.jar` | Current config-GUI GitHub-hosted release |
 
 ## Current State
 - Complete implementation is on `cursor/battle-soldiers-mod-1918`; draft PR #1 targets `main`.
 - `/soldiers <count> <gear 1-6>` and advanced battle/team/join/clear/status subcommands are implemented.
-- Version 2.5.1 uses a custom `Monster` entity and unified combat state machine; no vanilla zombie, melee, or bow combat goals remain.
+- Version 2.6.0 adds `/soldiers menu` (alias `config`), `/soldiers info [class]`, a JSON-persisted `SoldierConfig`, and a full server-side chest-GUI config suite.
+- All 11 class spawn chances are config weights edited in the GUI; defaults are Vanguard 38, Brute 26, Ranger 7.5, Trapper 14, Duelist 3.5, Medic/Engineer/Lancer/Demolitionist 2, Alchemist/Ender Skirmisher 1.5 (sums to 100).
+- Role selection is a weighted pick over gear-eligible roles: Trapper/Alchemist/Ender Skirmisher/Demolitionist need gear 4+, Medic/Engineer 3+, Lancer 2+; the 20% squad specialist cap and the tiny-squad Vanguard/Brute/Duelist restriction still apply.
+- Per-tier gear overrides (helmet/chest/legs/boots/sword/axe/bow/shield/spear) apply the exact configured ItemStack to every soldier of the tier, including inventory copies and replenished weapons; entity weapon identity (equipSword/equipAxe/equipSpear/isHoldingAxe) resolves through the override item.
+- The item editor is PvP-Legacy style: leveled enchanted books per applicable enchantment (curses excluded), click-to-apply/click-again-to-remove, material cycling (leather→chainmail→copper→gold→iron→diamond→netherite) that preserves enchants, clear-enchants and remove-override buttons.
+- Per-tier supply overrides: golden apples, enchanted golden apples, Trapper webs, Ranger arrows, building blocks, totems, Vanguard shield chance, utility potion chance; overrides also drive replenishment floors.
+- A configured bow override supersedes the Ranger Power V guarantee; tier-6 auto-enchanting defers to overrides.
+- The Soldier Inspector lists live soldiers sorted by distance and opens a per-soldier live inventory view (armor/hands/36 slots, durability and enchants on hover) refreshing every second.
+- Config persists to `config/battle-soldiers.json` (Fabric config dir) on every edit and loads on server start; ItemStacks use the registry-ops codec.
+- A debug fake-player harness (`/soldiers debug join/open/click/menuinfo`, only with `-Dbattlesoldiers.debug=true`) drives GUI clicks headlessly for automated testing.
+- Version 2.5.1 introduced a custom `Monster` entity and unified combat state machine; no vanilla zombie, melee, or bow combat goals remain.
 - Core classes remain Vanguard, Brute, Ranger, and Trapper.
 - Rare specialists are Medic, Engineer, Lancer, Duelist, Alchemist, Ender Skirmisher, and Demolitionist; specialists are capped at 20% per squad.
-- Rare specialists have distinct role colors; the core Trapper roll was raised slightly from 12% to 14%.
+- Rare specialists have distinct role colors.
 - Commander, personality variants, and Crystalist are intentionally excluded.
 - A server-scoped squad blackboard shares ranked targets, frontline state, habits, reservations, and tier skill profiles.
 - Simultaneous melee attackers are capped; excess soldiers receive stable flank/replacement positions.
@@ -72,7 +87,7 @@
 - Rangers persist one owned perch per engagement and never path, strafe, heal-retreat, build, breach, or wander off it.
 - Unsupported ground Rangers detect the loss of frontline allies and advance/fight instead of retreating indefinitely.
 - Soldiers never drop XP orbs.
-- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.5.1.jar`.
+- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.6.0.jar`.
 - A downloadable copy is staged at `/opt/cursor/artifacts/battle-soldiers-1.0.0.jar` (SHA-256 `344011d03587c796d13c037b1112eae672c0d950bcb42c1ff0d7107b635e43e1`).
 - Version 2.0.0 is also staged at `/opt/cursor/artifacts/battle-soldiers-2.0.0.jar` for direct chat delivery because the user's FortiGate policy blocks `raw.githubusercontent.com`.
 - Version 1.1.0 is committed at `releases/battle-soldiers-1.1.0.jar` with SHA-256 `627ebf2259d9be25a4a844b36646a9a43b1997065cb2b4b4ed1b154a1c80f6ab`.
@@ -131,6 +146,11 @@
 | 2026-07-23 | Enforce Power V for every Ranger and teleport out-of-range Rangers to the squad backline. | Low-tier Rangers lacked damage and could become irrelevant or take fall damage when the engagement moved beyond their tower range. |
 | 2026-07-23 | Give every non-Trapper 3–5 finite webs and shared trap AI. | Squads needed residual control after dedicated unlimited-web Trappers died. |
 | 2026-07-24 | Apply player-style durability damage to soldier armor. | Vanilla LivingEntity armor hooks are no-ops for mobs, so equipped soldier armor otherwise never degraded or broke. |
+| 2026-08-18 | Replace hardcoded role probabilities with config weights defaulting Ranger to exactly 7.5%. | The user requested a precise Ranger percentage plus GUI-editable spawn chances for every class. |
+| 2026-08-18 | Build the config UI as server-side vanilla chest menus with click interception. | Works without any client-side screens, looks like a real inventory, and matches the PvP Legacy enchant-book editing flow the user referenced. |
+| 2026-08-18 | Apply gear overrides after procedural generation and resolve weapon identity through the override item. | Guarantees the exact configured item everywhere (equipment, inventory copies, replenishment) without breaking weapon-swap AI when materials change. |
+| 2026-08-18 | Let bow overrides supersede the automatic Power V guarantee. | An explicit user-configured bow must be authoritative, including its enchantments. |
+| 2026-08-18 | Gate a fake-player click harness behind `-Dbattlesoldiers.debug=true`. | Enables real end-to-end GUI click tests on a headless server while keeping release behavior untouched. |
 
 ## Agent Activity Log
 | Date | Agent | What Changed |
@@ -154,3 +174,4 @@
 | 2026-07-23 | GPT-5.6 Sol | Added 2.4.0 delayed-Mace fall detection, every-third Ranger homing arrows, server tracking, persistence/telemetry, runtime checks, and a rebuilt artifact. |
 | 2026-07-23 | GPT-5.6 Sol | Added 2.5.0 universal Ranger Power V, safe pack-backline teleports, finite webs for all non-Trappers, shared trap AI, runtime checks, and a rebuilt artifact. |
 | 2026-07-24 | GPT-5.6 Sol | Added 2.5.1 player-style armor durability, Unbreaking/bypass compatibility, runtime durability proof, and a rebuilt artifact. |
+| 2026-08-18 | Claude Fable 5 | Added 2.6.0 config-driven spawn weights (Ranger 7.5%), `/soldiers info`, the full chest-GUI config suite (weights, tier loadouts, PvP-Legacy enchant books, supply editors, live soldier inspector), JSON persistence, a debug click harness, end-to-end runtime GUI tests, and a rebuilt artifact. |

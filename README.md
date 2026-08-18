@@ -15,7 +15,7 @@ Install the mod and Fabric API in the `mods` folder. Multiplayer servers and con
 
 ## Download
 
-[Download Battle Soldiers 2.5.1](releases/battle-soldiers-2.5.1.jar?raw=1)
+[Download Battle Soldiers 2.6.0](releases/battle-soldiers-2.6.0.jar?raw=1)
 
 ## Quick start
 
@@ -47,31 +47,50 @@ This deploys 12 gear-level-3 red soldiers against 12 gear-level-5 blue soldiers.
 | `/soldiers status` | Show squads, engagements, active/cumulative reactive blocks, and landed criticals |
 | `/soldiers clear` | Remove all loaded soldiers and their tactical blocks |
 | `/soldiers clear <training\|red\|blue>` | Remove one loaded squad |
+| `/soldiers menu` (alias `/soldiers config`) | Open the in-game config GUI |
+| `/soldiers info` | Chat overview of every class with live spawn percentages |
+| `/soldiers info <class>` | Full chat breakdown of one class: tactics, stats, counters |
 
 Commands require game-master permission (cheats in single-player or operator access on a server). The battlefield is capped at 128 loaded soldiers.
 
+## In-game config GUI
+
+`/soldiers menu` opens a chest-style GUI so every knob can be edited in-game without touching files. All changes save instantly to `config/battle-soldiers.json` and survive restarts.
+
+- **Class Guide** — every class as a hoverable icon with stats, availability, and live spawn share; click one for the full chat breakdown.
+- **Spawn Chances** — every class (core and specialist) with its spawn weight. Left-click +0.5, right-click −0.5, shift for ±5, plus a reset-to-defaults button. Ranger defaults to **7.5%**.
+- **Tier Loadouts** — pick a gear tier (1–6), then:
+  - **Gear row** (helmet, chestplate, leggings, boots, sword, axe, bow, shield, spear): click a piece to open the item editor. Overridden items are given to every soldier of that tier exactly as configured; right-click clears an override.
+  - **Item editor (PvP-Legacy style)** — the item sits up top and every applicable enchantment is laid out as leveled enchanted books (Protection I–IV, Sharpness I–V, …). Click a book to apply exactly that level; click the highlighted ✔ book again to remove it. Concrete arrows cycle the material (leather → chainmail → copper → gold → iron → diamond → netherite) while keeping enchantments, and there are buttons to clear all enchantments or drop the override.
+  - **Supply row** — golden apples, enchanted golden apples, Trapper webs, Ranger arrows, building blocks, totems, Vanguard shield chance, and utility potion chance. Left/right adjust, shift+left for big steps, shift+right resets to default.
+- **Soldier Inspector** — live list of every active soldier sorted by distance; click one to open its inventory laid out like a player inventory (armor, hands, and all 36 slots with real durability and enchantments visible on hover). The view auto-refreshes every second.
+
+A configured bow override replaces the automatic Ranger Power V guarantee; tier-6 auto-enchanting also defers to any override.
+
 ## Combat classes
 
-| Class | Health | Behavior |
-| --- | ---: | --- |
-| Vanguard | 20 | Raises a shield, advances slowly, lowers it for telegraphed sword counters, and switches to an axe against blockers |
-| Brute | 22 | Slow axe fighter with long recoveries and strong descending jump-critical attacks |
-| Ranger | 18 | Keeps distance, strafes while drawing a finite-ammo bow, switches to backup melee up close, and builds cover/towers |
-| Trapper | 20 | Tier-4+ control class with a slightly increased 14% core-role chance and a large finite cobweb supply |
+Spawn percentages below are the configurable defaults; edit them live via `/soldiers menu` → Spawn Chances.
+
+| Class | Health | Default share | Behavior |
+| --- | ---: | ---: | --- |
+| Vanguard | 20 | 38% | Raises a shield, advances slowly, lowers it for telegraphed sword counters, and switches to an axe against blockers |
+| Brute | 22 | 26% | Slow axe fighter with long recoveries and strong descending jump-critical attacks |
+| Ranger | 18 | 7.5% | Keeps distance, strafes while drawing a bow, switches to backup melee up close, and builds cover/towers |
+| Trapper | 20 | 14% | Tier-4+ control class with a large replenishing cobweb supply |
 
 ### Rare specialists
 
 Specialists are composition-capped to at most 20% of a squad, so frontline classes always remain the majority. Each specialist has a distinct name color for immediate battlefield identification.
 
-| Specialist | Health | Behavior |
-| --- | ---: | --- |
-| Medic | 18 | Finds wounded allies and consumes finite healing/regeneration potions on them |
-| Engineer | 22 | Carries extra blocks/ladders and builds two-block squad fortifications |
-| Lancer | 20 | Uses tiered kinetic spears with extended charge reach |
-| Duelist | 18 | Fast sword pressure, aggressive flanks, and frequent jump-critical attempts |
-| Alchemist | 18 | Consumes finite poison, weakness, and slowness supplies without debuffing allies |
-| Ender Skirmisher | 18 | Consumes pearls to blink behind distant, elevated, or unreachable targets |
-| Demolitionist | 22 | Primes owned TNT against blocked positions only when allies have cleared the blast area |
+| Specialist | Health | Default share | Behavior |
+| --- | ---: | ---: | --- |
+| Medic | 18 | 2% | Finds wounded allies and consumes finite healing/regeneration potions on them |
+| Engineer | 22 | 2% | Carries extra blocks/ladders and builds two-block squad fortifications |
+| Lancer | 20 | 2% | Uses tiered kinetic spears with extended charge reach |
+| Duelist | 18 | 3.5% | Fast sword pressure, aggressive flanks, and frequent jump-critical attempts |
+| Alchemist | 18 | 1.5% | Consumes finite poison, weakness, and slowness supplies without debuffing allies |
+| Ender Skirmisher | 18 | 1.5% | Consumes pearls to blink behind distant, elevated, or unreachable targets |
+| Demolitionist | 22 | 2% | Primes owned TNT against blocked positions only when allies have cleared the blast area |
 
 Commander, personality variants, and Crystalist are intentionally not implemented.
 
@@ -132,6 +151,7 @@ Gear tiers improve equipment and tactical timing—not health. Every tier stays 
 - Totem-equipped soldiers use vanilla Totem of Undying mechanics and automatically move a spare shield or totem into the offhand afterward.
 - Soldiers detect opponents behind nearby obstacles, approach the reachable face, show block-breaking cracks, and breach blocks according to gear capability.
 - Soldiers only place blocks for a detected gap, ranged cover, or an elevation step—not randomly. Placed cobblestone/planks are tracked and cleaned up automatically.
+- Class spawn weights and every tier's gear/enchant/supply overrides come from `config/battle-soldiers.json`, fully editable through the in-game GUI.
 - Equipment, inventory slots, role, squad, cooldowns, and placed-block records persist across saves.
 - Soldier armor loses durability from incoming armor-affected damage exactly like player armor, respects Unbreaking, and can break during combat.
 - Soldiers drop their worn equipment and remaining inventory on death.
@@ -156,7 +176,7 @@ Soldier-placed cobblestone and planks are cleaned up automatically. Blocks delib
 The distributable mod is written to:
 
 ```text
-build/libs/battle-soldiers-2.5.1.jar
+build/libs/battle-soldiers-2.6.0.jar
 ```
 
 For local development:
