@@ -39,7 +39,8 @@
 | `releases/battle-soldiers-2.5.0.jar` | Previous Power-V/backline/shared-web release |
 | `releases/battle-soldiers-2.5.1.jar` | Previous armor-durability release |
 | `releases/battle-soldiers-2.6.0.jar` | Previous config-GUI release |
-| `releases/battle-soldiers-2.7.0.jar` | Current server-side/vanilla-client GitHub-hosted release |
+| `releases/battle-soldiers-2.7.0.jar` | Previous server-side/vanilla-client release |
+| `releases/battle-soldiers-2.7.1.jar` | Current class-spawn GitHub-hosted release |
 
 ## Current State
 - Complete implementation is on `cursor/battle-soldiers-mod-1918`; draft PR #1 targets `main`.
@@ -47,7 +48,8 @@
 - `BattleSoldierEntity implements PolymerEntity` and is disguised as `minecraft:zombie` on the wire (matching 0.6x1.95 hitbox); `PolymerEntityUtils.registerType` hides the type from vanilla-client registry sync; saves keep the real `battle_soldiers:soldier` id so persistence is unaffected.
 - All command feedback is literal text (no translatable keys), so vanilla clients read it correctly; the GUI was already vanilla chest menus and needs nothing client-side.
 - Clients that do install the mod still see the real entity and custom renderer; both client kinds share one world.
-- `/soldiers <count> <gear 1-6>` and advanced battle/team/join/clear/status subcommands are implemented.
+- `/soldiers <count> <gear 1-6> [class]` and advanced battle/team/join/clear/status subcommands are implemented; the optional class literal (all 11 roles, tab-completed) forces exact spawns, bypassing weights, gear gating, tiny-squad rules, and specialist caps.
+- `/soldiers battle <count> <red-gear> <blue-gear> [red-class] [blue-class]` supports class-locked armies; a single class applies to both teams.
 - Version 2.6.0 adds `/soldiers menu` (alias `config`), `/soldiers info [class]`, a JSON-persisted `SoldierConfig`, and a full server-side chest-GUI config suite.
 - All 11 class spawn chances are config weights edited in the GUI; defaults are Vanguard 38, Brute 26, Ranger 7.5, Trapper 14, Duelist 3.5, Medic/Engineer/Lancer/Demolitionist 2, Alchemist/Ender Skirmisher 1.5 (sums to 100).
 - Role selection is a weighted pick over gear-eligible roles: Trapper/Alchemist/Ender Skirmisher/Demolitionist need gear 4+, Medic/Engineer 3+, Lancer 2+; the 20% squad specialist cap and the tiny-squad Vanguard/Brute/Duelist restriction still apply.
@@ -92,7 +94,7 @@
 - Rangers persist one owned perch per engagement and never path, strafe, heal-retreat, build, breach, or wander off it.
 - Unsupported ground Rangers detect the loss of frontline allies and advance/fight instead of retreating indefinitely.
 - Soldiers never drop XP orbs.
-- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.7.0.jar`.
+- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.7.1.jar`.
 - A downloadable copy is staged at `/opt/cursor/artifacts/battle-soldiers-1.0.0.jar` (SHA-256 `344011d03587c796d13c037b1112eae672c0d950bcb42c1ff0d7107b635e43e1`).
 - Version 2.0.0 is also staged at `/opt/cursor/artifacts/battle-soldiers-2.0.0.jar` for direct chat delivery because the user's FortiGate policy blocks `raw.githubusercontent.com`.
 - Version 1.1.0 is committed at `releases/battle-soldiers-1.1.0.jar` with SHA-256 `627ebf2259d9be25a4a844b36646a9a43b1997065cb2b4b4ed1b154a1c80f6ab`.
@@ -110,6 +112,8 @@
 - Version 2.5.1 is committed at `releases/battle-soldiers-2.5.1.jar` with SHA-256 `d45b5f9c80ab014a003d13579fbe618d966056c82f5dd1f6d2922cc20486dc75`.
 - Version 2.6.0 is committed at `releases/battle-soldiers-2.6.0.jar` with SHA-256 `20359f40a1e296b180f608889cfecf54633259b908da473e20e76424b2f6b269` and staged at `/opt/cursor/artifacts/battle-soldiers-2.6.0.jar`.
 - Version 2.7.0 is committed at `releases/battle-soldiers-2.7.0.jar` with SHA-256 `591ef873b84b35c2ef09c2d93648125a90733d7192a94b43b7cfd8e482c6a22e` and staged at `/opt/cursor/artifacts/battle-soldiers-2.7.0.jar`.
+- Version 2.7.1 is committed at `releases/battle-soldiers-2.7.1.jar` with SHA-256 `688464c4610068572d377f5e1a023e4f6bafccb1db3ad9604f4751ba1820f84b` and staged at `/opt/cursor/artifacts/battle-soldiers-2.7.1.jar`.
+- 2.7.1 dedicated-server checks passed: `soldiers 1 6 duelist`, tier-1 forced Trappers, `team red 2 4 ranger`, `battle 3 5 5 brute duelist` (correct per-team roles and labels), and unlabeled random spawns; NBT confirmed forced CombatRole values with zero log errors.
 - 2.7.0 checks passed with a real vanilla-protocol client (node minecraft-protocol, offline auth): joined through Fabric+Polymer configuration (answering the config-phase ping like a real vanilla client), reached PLAY with no registry-sync kick, received soldiers as `minecraft:zombie` spawns, was killed by "Training Vanguard • Gear 3", and stayed connected through a 5v5 battle; fake-player GUI regression and pre-Polymer world persistence also passed with zero log errors.
 - 2.6.0 dedicated-server checks passed: GUI click persistence, deterministic 27/30-Ranger weight test, tier-3 diamond-sword Sharpness V + Fire Aspect II override applied in-game and after restart, enchant toggle-off, override removal, golden-apple supply override, live inventory inspector, 6v6 battle regression, and debug-tree absence in release mode.
 - Dedicated-server checks passed for 12.5% specialist composition in a 64-soldier sample, all seven specialists, Medic consumption, Engineer fortifications, Alchemist debuffs, Lancer spears, Demolitionist TNT, squad coordination, and prior combat systems.
@@ -163,6 +167,7 @@
 | 2026-08-18 | Integrate Polymer (bundled jar-in-jar) and disguise soldiers as zombies for non-modded clients. | Fabric registry sync otherwise kicks vanilla clients over the custom entity type; the user wants friends to join without installing anything. |
 | 2026-08-18 | Replace all translatable command feedback with literal text. | Vanilla clients lack the mod's lang file and would render raw translation keys. |
 | 2026-08-18 | Verify the vanilla-join path with a real protocol client (node minecraft-protocol 1.21.11). | Reaching PLAY state, seeing zombie-disguised soldiers, and being killed by one is the only conclusive proof of vanilla-client compatibility. |
+| 2026-08-18 | Let class-forced spawns bypass gear gating, weights, tiny-squad rules, and specialist caps. | An explicit `/soldiers 1 6 duelist` request is a sandbox tool; silently substituting a different class would be wrong. |
 
 ## Agent Activity Log
 | Date | Agent | What Changed |
@@ -188,3 +193,4 @@
 | 2026-07-24 | GPT-5.6 Sol | Added 2.5.1 player-style armor durability, Unbreaking/bypass compatibility, runtime durability proof, and a rebuilt artifact. |
 | 2026-08-18 | Claude Fable 5 | Added 2.6.0 config-driven spawn weights (Ranger 7.5%), `/soldiers info`, the full chest-GUI config suite (weights, tier loadouts, PvP-Legacy enchant books, supply editors, live soldier inspector), JSON persistence, a debug click harness, end-to-end runtime GUI tests, and a rebuilt artifact. |
 | 2026-08-18 | Claude Fable 5 | Added 2.7.0 full server-side support: bundled Polymer, zombie wire-disguise, literal command feedback, vanilla-protocol join/combat/GUI verification, docs, and a rebuilt artifact. |
+| 2026-08-18 | Claude Fable 5 | Added 2.7.1 optional class arguments for spawn/team/battle commands with runtime verification and a rebuilt artifact. |

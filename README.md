@@ -24,7 +24,7 @@ Joining players need **nothing installed** — a completely vanilla launcher wor
 
 ## Download
 
-[Download Battle Soldiers 2.7.0](releases/battle-soldiers-2.7.0.jar?raw=1)
+[Download Battle Soldiers 2.7.1](releases/battle-soldiers-2.7.1.jar?raw=1)
 
 ## Quick start
 
@@ -48,9 +48,9 @@ This deploys 12 gear-level-3 red soldiers against 12 gear-level-5 blue soldiers.
 
 | Command | Action |
 | --- | --- |
-| `/soldiers <count> <gear>` | Spawn 1–64 training soldiers; gear must be 1–6 |
-| `/soldiers battle <count-per-team> <red-gear> <blue-gear>` | Spawn two opposing armies |
-| `/soldiers team <training\|red\|blue> <count> <gear>` | Spawn a specific squad |
+| `/soldiers <count> <gear> [class]` | Spawn 1–64 training soldiers; gear must be 1–6, class optional |
+| `/soldiers battle <count-per-team> <red-gear> <blue-gear> [red-class] [blue-class]` | Spawn two opposing armies; one class applies to both teams unless a second is given |
+| `/soldiers team <training\|red\|blue> <count> <gear> [class]` | Spawn a specific squad |
 | `/soldiers join <training\|red\|blue>` | Join a squad so its soldiers treat you as an ally |
 | `/soldiers join none` | Leave soldier squads |
 | `/soldiers status` | Show squads, engagements, active/cumulative reactive blocks, and landed criticals |
@@ -61,6 +61,8 @@ This deploys 12 gear-level-3 red soldiers against 12 gear-level-5 blue soldiers.
 | `/soldiers info <class>` | Full chat breakdown of one class: tactics, stats, counters |
 
 Commands require game-master permission (cheats in single-player or operator access on a server). The battlefield is capped at 128 loaded soldiers.
+
+The optional class is one of `vanguard`, `brute`, `ranger`, `trapper`, `medic`, `engineer`, `lancer`, `duelist`, `alchemist`, `ender_skirmisher`, `demolitionist` (tab-completes in-game). Class-forced spawns are exact: they bypass spawn weights, gear gating, tiny-squad rules, and the specialist cap — `/soldiers 1 6 duelist` gives you exactly one gear-6 Duelist.
 
 ## In-game config GUI
 
@@ -186,7 +188,7 @@ Soldier-placed cobblestone and planks are cleaned up automatically. Blocks delib
 The distributable mod is written to:
 
 ```text
-build/libs/battle-soldiers-2.7.0.jar
+build/libs/battle-soldiers-2.7.1.jar
 ```
 
 For local development:
