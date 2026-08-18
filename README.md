@@ -24,7 +24,7 @@ Joining players need **nothing installed** — a completely vanilla launcher wor
 
 ## Download
 
-[Download Battle Soldiers 2.7.4](releases/battle-soldiers-2.7.4.jar?raw=1)
+[Download Battle Soldiers 2.7.5](releases/battle-soldiers-2.7.5.jar?raw=1)
 
 ## Quick start
 
@@ -132,6 +132,11 @@ Gear tiers improve equipment and tactical timing—not health. Every tier stays 
 - Terrain choices compare bridge, cover, and stair utility rather than executing the first fixed rule.
 - Non-shield soldiers calculate projectile closest approach and dodge laterally into collision-checked positions.
 - Soldiers sprint like players when closing distance, complete with sprint-jump hops on open ground, and drop sprint inside strike range for controlled strafing.
+- Combat footwork runs at real player pace: a custom move controller removes vanilla's hardcoded quarter-speed mob strafing for all circling, spacing, kiting, and disengage movement.
+- Melee fights follow hit-and-run passes: swing (or finish a short combo), arc out of trade range during recovery, then re-enter — and if you chase a disengaging soldier, it turns and fights.
+- Soldiers respect a ready, aimed opponent: they hold poke range and circle until you swing, look away, or use an item — then commit instantly (patience is tier-scaled and they eventually force the issue).
+- Shieldless soldiers sidestep incoming swings with a quick lateral dash on a tier-scaled reaction cooldown.
+- Strafe circling biases toward your back (70% of direction flips move behind your view), and waiting flankers pace a wider ring at walking speed instead of sprint-orbiting like a mob crowd.
 - Close-range approaches use direct per-tick steering with a lateral weave instead of pathfinding node-hops, so soldiers arc in like strafing players rather than walking straight mob lines.
 - Knockback is answered with an immediate momentum surge back into the fight plus an unpredictable strafe-direction reset.
 - Strafe rhythm flips at randomized intervals; after each swing soldiers back out of trade range and surge back in as their next attack readies.
@@ -195,7 +200,7 @@ Soldier-placed cobblestone and planks are cleaned up automatically. Blocks delib
 The distributable mod is written to:
 
 ```text
-build/libs/battle-soldiers-2.7.4.jar
+build/libs/battle-soldiers-2.7.5.jar
 ```
 
 For local development:

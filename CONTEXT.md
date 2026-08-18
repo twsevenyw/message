@@ -43,7 +43,8 @@
 | `releases/battle-soldiers-2.7.1.jar` | Previous class-spawn release |
 | `releases/battle-soldiers-2.7.2.jar` | Previous multiplayer-targeting release |
 | `releases/battle-soldiers-2.7.3.jar` | Previous player-movement release |
-| `releases/battle-soldiers-2.7.4.jar` | Current aggression-fix GitHub-hosted release |
+| `releases/battle-soldiers-2.7.4.jar` | Previous aggression-fix release |
+| `releases/battle-soldiers-2.7.5.jar` | Current engagement-discipline GitHub-hosted release |
 
 ## Current State
 - Complete implementation is on `cursor/battle-soldiers-mod-1918`; draft PR #1 targets `main`.
@@ -73,6 +74,8 @@
 - Simultaneous melee attackers are capped; excess soldiers receive stable flank/replacement positions.
 - 2.7.4: melee reservations are validated against the holder's live target and a 30-tick activity touch, and `BattleSoldierEntity.setTarget` releases the slot on any target change — target switches (common since 2.7.2) previously leaked slots until the whole squad orbited without swinging.
 - 2.7.4: melee windups start at ≤2.5 blocks (steering in during the windup), recovery backpedals are gentler (-0.12F, only past 8 cooldown ticks), and soldiers never back off a target stuck in a cobweb.
+- 2.7.5 engagement discipline: `SoldierMoveControl.strafeAt` removes vanilla's hardcoded 0.25 strafe speed for all combat footwork; melee follows hit-and-run passes (disengage = cooldown +4-9 ticks, arcing to ~4.5 blocks, turning to fight if chased down); soldiers hold poke range against a facing/ready/non-item-using player until tier-scaled patience expires (then commit with a 30-50 tick commitment window); shieldless soldiers sidestep imminent swings (0.30 lateral impulse, 16-42 tick cooldown); strafe flips bias 70% toward the target's back via view-cross sign (cross < 0 → clockwise); flankers hold a 5.5+ ring and never sprint inside 8 blocks; attack cadence has ±1 tick jitter.
+- Trapper webs are effectively infinite: initial 5/8/12 (tier 4/5/6) plus a replenish floor of 4/4/4/6/10/14 every ~5 ticks; the only cap is 48 concurrently placed blocks per soldier (webs release on death). Non-Trappers carry finite 3-5.
 - Squads learn shielding, ranged use, strafing, Maces, crystals, and elevation; utility and prediction adapt to those habits.
 - Consumables use utility scoring, terrain uses scored bridge/cover/stair plans, and non-shield units directionally dodge converging projectiles.
 - Individual combat now includes armor-aware weapon choice, hit combos, sprint resets, feints, and incoming-damage prediction.
@@ -103,7 +106,7 @@
 - Rangers persist one owned perch per engagement and never path, strafe, heal-retreat, build, breach, or wander off it.
 - Unsupported ground Rangers detect the loss of frontline allies and advance/fight instead of retreating indefinitely.
 - Soldiers never drop XP orbs.
-- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.7.4.jar`.
+- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.7.5.jar`.
 - A downloadable copy is staged at `/opt/cursor/artifacts/battle-soldiers-1.0.0.jar` (SHA-256 `344011d03587c796d13c037b1112eae672c0d950bcb42c1ff0d7107b635e43e1`).
 - Version 2.0.0 is also staged at `/opt/cursor/artifacts/battle-soldiers-2.0.0.jar` for direct chat delivery because the user's FortiGate policy blocks `raw.githubusercontent.com`.
 - Version 1.1.0 is committed at `releases/battle-soldiers-1.1.0.jar` with SHA-256 `627ebf2259d9be25a4a844b36646a9a43b1997065cb2b4b4ed1b154a1c80f6ab`.
@@ -128,7 +131,9 @@
 - Version 2.7.3 is committed at `releases/battle-soldiers-2.7.3.jar` with SHA-256 `a1eef31c8ac2cab9b6342c30decdcc1027f539ec27e9901941910496dce70516` and staged at `/opt/cursor/artifacts/battle-soldiers-2.7.3.jar`.
 - 2.7.3 movement checks passed: position polling showed a chasing Vanguard covering ~5.5-6 blocks/s with sprinting=true and mid-hop airborne samples, sprint dropping to false inside strike range with circling positions, and a clean 5v5 battle with zero log errors.
 - Version 2.7.4 is committed at `releases/battle-soldiers-2.7.4.jar` with SHA-256 `1d1b16fc2409543c6b26e69d998c67f743a942a8e91299437d942779fc429c9e` and staged at `/opt/cursor/artifacts/battle-soldiers-2.7.4.jar`.
-- 2.7.4 aggression checks passed: 6 duelists killed a Regen-IX/Resistance-II fake player in ~6s (5 crits); after a vanilla client pulled partial aggro (4/2 split, both targets immune), the squad landed 27 crit hits in 13s at 1-3 block positions with no flank-ring orbiting; a 5v4v battle regression and zero log errors. A `soldiers debug revive` command respawns dead fake players. |
+- 2.7.4 aggression checks passed: 6 duelists killed a Regen-IX/Resistance-II fake player in ~6s (5 crits); after a vanilla client pulled partial aggro (4/2 split, both targets immune), the squad landed 27 crit hits in 13s at 1-3 block positions with no flank-ring orbiting; a 5v4v battle regression and zero log errors. A `soldiers debug revive` command respawns dead fake players.
+- Version 2.7.5 is committed at `releases/battle-soldiers-2.7.5.jar` with SHA-256 `c8d90240fd221211b68b3c1ec3afc3d1848a40a550aedc98ce8b39ecc7d9a913` and staged at `/opt/cursor/artifacts/battle-soldiers-2.7.5.jar`.
+- 2.7.5 duel-rhythm telemetry: 0.5s position sampling of a solo duelist showed in-close swings at ~1 block, disengage arcs out to 3-4.5 blocks, full-quadrant circling around the target, and mid-fight hops; 6 duelists sustained 7 crits/12s against an immune dummy (paced pressure vs the old 27/13s swarm); a 5v5 battle ran with shields/crits/homing shots and zero log errors.
 - 2.7.0 checks passed with a real vanilla-protocol client (node minecraft-protocol, offline auth): joined through Fabric+Polymer configuration (answering the config-phase ping like a real vanilla client), reached PLAY with no registry-sync kick, received soldiers as `minecraft:zombie` spawns, was killed by "Training Vanguard • Gear 3", and stayed connected through a 5v5 battle; fake-player GUI regression and pre-Polymer world persistence also passed with zero log errors.
 - 2.6.0 dedicated-server checks passed: GUI click persistence, deterministic 27/30-Ranger weight test, tier-3 diamond-sword Sharpness V + Fire Aspect II override applied in-game and after restart, enchant toggle-off, override removal, golden-apple supply override, live inventory inspector, 6v6 battle regression, and debug-tree absence in release mode.
 - Dedicated-server checks passed for 12.5% specialist composition in a 64-soldier sample, all seven specialists, Medic consumption, Engineer fortifications, Alchemist debuffs, Lancer spears, Demolitionist TNT, squad coordination, and prior combat systems.
@@ -186,6 +191,7 @@
 | 2026-08-18 | Make shared-target adoption idle-only with a nearest-player preference. | The 4-tick forced sync locked whole squads onto one player and overrode retaliation, so a second player was ignored until the first died. |
 | 2026-08-18 | Rebuild movement around sprinting, direct steering, weaves, hops, step assist, and knockback surges. | The user identified movement as the biggest skill gap: A*-node walking with burst-only sprint read as mob-like against real PvP movement. |
 | 2026-08-18 | Validate melee reservations against live target + activity touches and release slots on target change. | Idle-only target adoption made switches common; leaked reservation slots filled the attacker cap with ghosts, leaving squads (notably Duelists) circling webbed players without swinging. |
+| 2026-08-18 | Add an engagement-discipline layer (hit-and-run passes, opening respect, sidesteps, back-circling, walking flank rings) and remove vanilla's 0.25 strafe speed. | Post-2.7.4 soldiers stormed targets on cooldown like a zombie pack; human PvP reads as passes, spacing, and openings — and all combat strafing had been running at quarter speed. |
 
 ## Agent Activity Log
 | Date | Agent | What Changed |
@@ -215,3 +221,4 @@
 | 2026-08-18 | Claude Fable 5 | Fixed 2.7.2 multiplayer tunnel vision: idle-only shared-target adoption, sticky retaliation, nearest-player preference, verified with a two-player (fake + vanilla-protocol) reproduction, and a rebuilt artifact. |
 | 2026-08-18 | Claude Fable 5 | Added 2.7.3 player-movement layer: sprint + sprint-jump chase (~5.5-6 b/s measured), direct-steer weaving approach, knockback surges, randomized strafe rhythm, spacing backpedals, step assist, runtime speed verification, and a rebuilt artifact. |
 | 2026-08-18 | Claude Fable 5 | Fixed 2.7.4 passive-orbit bug: reservation-slot leak repair, target-change slot release, 2.5-block windup commitment, webbed-target pressure, two-player aggression verification (27 crits/13s), a debug revive command, and a rebuilt artifact. |
+| 2026-08-18 | Claude Fable 5 | Added 2.7.5 engagement discipline: full-speed combat strafing via SoldierMoveControl, hit-and-run recovery arcs, opening-based commitment, sidestep dodges, back-circling bias, calm flank rings, cadence jitter, telemetry-verified duel rhythm, and a rebuilt artifact. |
