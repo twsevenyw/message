@@ -189,10 +189,15 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob, Pol
 	}
 
 	public void initializeSoldier(SoldierSquad squad, GearLevel gearLevel) {
+		this.initializeSoldier(squad, gearLevel, (CombatRole) null);
+	}
+
+	/** Initializes with an explicit class, bypassing weighted selection, gear gating, and squad caps. */
+	public void initializeSoldier(SoldierSquad squad, GearLevel gearLevel, @Nullable CombatRole forcedRole) {
 		SquadCoordinator.unregister(this);
 		this.squad = squad;
 		this.gearLevel = gearLevel;
-		this.combatRole = this.chooseCombatRole();
+		this.combatRole = forcedRole != null ? forcedRole : this.chooseCombatRole();
 		this.initialized = true;
 		this.generateRandomLoadout();
 		BattleTeams.assignSoldier(this);

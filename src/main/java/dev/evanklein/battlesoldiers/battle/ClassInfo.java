@@ -217,6 +217,9 @@ public record ClassInfo(
 				.append(Component.literal(" for details or ").withStyle(ChatFormatting.GRAY))
 				.append(Component.literal("/soldiers menu").withStyle(ChatFormatting.YELLOW))
 				.append(Component.literal(" for the config GUI.").withStyle(ChatFormatting.GRAY)));
+		lines.add(Component.literal("Spawn a specific class with ").withStyle(ChatFormatting.GRAY)
+				.append(Component.literal("/soldiers <count> <gear> <class>").withStyle(ChatFormatting.YELLOW))
+				.append(Component.literal(" (bypasses gear gating and caps).").withStyle(ChatFormatting.GRAY)));
 		return lines;
 	}
 

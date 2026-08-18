@@ -2,6 +2,7 @@ package dev.evanklein.battlesoldiers.command;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import dev.evanklein.battlesoldiers.battle.BattleTeams;
 import dev.evanklein.battlesoldiers.battle.ClassInfo;
@@ -24,6 +25,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,18 +43,15 @@ public final class SoldierCommands {
 				LiteralArgumentBuilder<CommandSourceStack> root =
 						Commands.literal("soldiers")
 								.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
-								.then(Commands.argument("count", IntegerArgumentType.integer(1, MAX_SINGLE_SPAWN))
-										.then(Commands.argument("gear", IntegerArgumentType.integer(1, 6))
-												.executes(context -> spawnTraining(
-														context,
-														IntegerArgumentType.getInteger(context, "count"),
-														IntegerArgumentType.getInteger(context, "gear")
-												))))
-								.then(Commands.literal("battle")
-										.then(Commands.argument("count-per-team", IntegerArgumentType.integer(1, MAX_BATTLE_SIDE))
-												.then(Commands.argument("red-gear", IntegerArgumentType.integer(1, 6))
-														.then(Commands.argument("blue-gear", IntegerArgumentType.integer(1, 6))
-																.executes(SoldierCommands::startBattle)))))
+								.then(spawnTree((context, count, gear, role) -> spawnSquad(
+										context.getSource(),
+										SoldierSquad.TRAINING,
+										count,
+										gear,
+										role,
+										context.getSource().getPosition()
+								)))
+								.then(Commands.literal("battle").then(battleTree()))
 								.then(Commands.literal("team")
 										.then(teamSpawnCommand(SoldierSquad.TRAINING))
 										.then(teamSpawnCommand(SoldierSquad.RED))
@@ -104,17 +103,71 @@ public final class SoldierCommands {
 		return 1;
 	}
 
+	@FunctionalInterface
+	private interface SpawnRunner {
+		int run(
+				CommandContext<CommandSourceStack> context,
+				int count,
+				GearLevel gear,
+				@Nullable CombatRole role
+		);
+	}
+
+	/** Builds {@code <count> <gear> [class]} where the class literal is optional. */
+	private static RequiredArgumentBuilder<CommandSourceStack, Integer> spawnTree(SpawnRunner runner) {
+		RequiredArgumentBuilder<CommandSourceStack, Integer> gearArg =
+				Commands.argument("gear", IntegerArgumentType.integer(1, 6))
+						.executes(context -> runner.run(
+								context,
+								IntegerArgumentType.getInteger(context, "count"),
+								GearLevel.byId(IntegerArgumentType.getInteger(context, "gear")),
+								null
+						));
+		for (CombatRole role : CombatRole.values()) {
+			gearArg.then(Commands.literal(role.id()).executes(context -> runner.run(
+					context,
+					IntegerArgumentType.getInteger(context, "count"),
+					GearLevel.byId(IntegerArgumentType.getInteger(context, "gear")),
+					role
+			)));
+		}
+		return Commands.argument("count", IntegerArgumentType.integer(1, MAX_SINGLE_SPAWN))
+				.then(gearArg);
+	}
+
+	/**
+	 * Builds {@code <count-per-team> <red-gear> <blue-gear> [red-class [blue-class]]};
+	 * one class applies to both teams unless a second is given.
+	 */
+	private static RequiredArgumentBuilder<CommandSourceStack, Integer> battleTree() {
+		RequiredArgumentBuilder<CommandSourceStack, Integer> blueGear =
+				Commands.argument("blue-gear", IntegerArgumentType.integer(1, 6))
+						.executes(context -> startBattle(context, null, null));
+		for (CombatRole redRole : CombatRole.values()) {
+			LiteralArgumentBuilder<CommandSourceStack> redLiteral =
+					Commands.literal(redRole.id())
+							.executes(context -> startBattle(context, redRole, redRole));
+			for (CombatRole blueRole : CombatRole.values()) {
+				redLiteral.then(Commands.literal(blueRole.id())
+						.executes(context -> startBattle(context, redRole, blueRole)));
+			}
+			blueGear.then(redLiteral);
+		}
+		return Commands.argument("count-per-team", IntegerArgumentType.integer(1, MAX_BATTLE_SIDE))
+				.then(Commands.argument("red-gear", IntegerArgumentType.integer(1, 6))
+						.then(blueGear));
+	}
+
 	private static LiteralArgumentBuilder<CommandSourceStack> teamSpawnCommand(SoldierSquad squad) {
 		return Commands.literal(squad.id())
-				.then(Commands.argument("count", IntegerArgumentType.integer(1, MAX_SINGLE_SPAWN))
-						.then(Commands.argument("gear", IntegerArgumentType.integer(1, 6))
-								.executes(context -> spawnSquad(
-										context.getSource(),
-										squad,
-										IntegerArgumentType.getInteger(context, "count"),
-										GearLevel.byId(IntegerArgumentType.getInteger(context, "gear")),
-										context.getSource().getPosition()
-								))));
+				.then(spawnTree((context, count, gear, role) -> spawnSquad(
+						context.getSource(),
+						squad,
+						count,
+						gear,
+						role,
+						context.getSource().getPosition()
+				)));
 	}
 
 	private static LiteralArgumentBuilder<CommandSourceStack> joinCommand(SoldierSquad squad) {
@@ -133,21 +186,12 @@ public final class SoldierCommands {
 		return Commands.literal(name).executes(context -> clearSoldiers(context, squad));
 	}
 
-	private static int spawnTraining(CommandContext<CommandSourceStack> context, int count, int gear) {
-		return spawnSquad(
-				context.getSource(),
-				SoldierSquad.TRAINING,
-				count,
-				GearLevel.byId(gear),
-				context.getSource().getPosition()
-		);
-	}
-
 	private static int spawnSquad(
 			CommandSourceStack source,
 			SoldierSquad squad,
 			int requested,
 			GearLevel gear,
+			@Nullable CombatRole role,
 			Vec3 center
 	) {
 		int room = MAX_ACTIVE_SOLDIERS - countActive(source.getServer());
@@ -158,9 +202,11 @@ public final class SoldierCommands {
 		}
 
 		int count = Math.min(requested, room);
-		int spawned = spawnFormation(source.getLevel(), center, count, squad, gear);
+		int spawned = spawnFormation(source.getLevel(), center, count, squad, gear, role);
+		String classLabel = role == null ? "" : " " + role.displayName();
 		source.sendSuccess(
-				() -> Component.literal("Deployed " + spawned + " level-" + gear.id() + " soldier(s)."),
+				() -> Component.literal(
+						"Deployed " + spawned + " level-" + gear.id() + classLabel + " soldier(s)."),
 				true
 		);
 		if (count < requested) {
@@ -170,7 +216,11 @@ public final class SoldierCommands {
 		return spawned;
 	}
 
-	private static int startBattle(CommandContext<CommandSourceStack> context) {
+	private static int startBattle(
+			CommandContext<CommandSourceStack> context,
+			@Nullable CombatRole redRole,
+			@Nullable CombatRole blueRole
+	) {
 		CommandSourceStack source = context.getSource();
 		int count = IntegerArgumentType.getInteger(context, "count-per-team");
 		GearLevel redGear = GearLevel.byId(IntegerArgumentType.getInteger(context, "red-gear"));
@@ -189,17 +239,22 @@ public final class SoldierCommands {
 				center.add(-separation, 0.0, 0.0),
 				count,
 				SoldierSquad.RED,
-				redGear
+				redGear,
+				redRole
 		);
 		int blue = spawnFormation(
 				source.getLevel(),
 				center.add(separation, 0.0, 0.0),
 				count,
 				SoldierSquad.BLUE,
-				blueGear
+				blueGear,
+				blueRole
 		);
+		String redLabel = redRole == null ? "" : " " + redRole.displayName() + "s";
+		String blueLabel = blueRole == null ? "" : " " + blueRole.displayName() + "s";
 		source.sendSuccess(
-				() -> Component.literal("Battle started: " + red + " red vs " + blue + " blue."),
+				() -> Component.literal(
+						"Battle started: " + red + " red" + redLabel + " vs " + blue + " blue" + blueLabel + "."),
 				true
 		);
 		return red + blue;
@@ -210,7 +265,8 @@ public final class SoldierCommands {
 			Vec3 center,
 			int count,
 			SoldierSquad squad,
-			GearLevel gear
+			GearLevel gear,
+			@Nullable CombatRole role
 	) {
 		int columns = Math.max(1, (int) Math.ceil(Math.sqrt(count)));
 		double spacing = 1.8;
@@ -232,7 +288,7 @@ public final class SoldierCommands {
 				continue;
 			}
 
-			soldier.initializeSoldier(squad, gear);
+			soldier.initializeSoldier(squad, gear, role);
 			soldier.setYRot(squad == SoldierSquad.RED ? -90.0F : 90.0F);
 			spawned++;
 		}
