@@ -103,6 +103,8 @@
 - Version 2.4.0 is committed at `releases/battle-soldiers-2.4.0.jar` with SHA-256 `2ef5e180426ebc153ccdbf150b915de3bdff83a4867e393e171f4ff992f6765d`.
 - Version 2.5.0 is committed at `releases/battle-soldiers-2.5.0.jar` with SHA-256 `67fb7c1183ac2a91a8ee9b9eae51ca6835e04a7c2c865fbf21028f8a7cc6a8a6`.
 - Version 2.5.1 is committed at `releases/battle-soldiers-2.5.1.jar` with SHA-256 `d45b5f9c80ab014a003d13579fbe618d966056c82f5dd1f6d2922cc20486dc75`.
+- Version 2.6.0 is committed at `releases/battle-soldiers-2.6.0.jar` with SHA-256 `20359f40a1e296b180f608889cfecf54633259b908da473e20e76424b2f6b269` and staged at `/opt/cursor/artifacts/battle-soldiers-2.6.0.jar`.
+- 2.6.0 dedicated-server checks passed: GUI click persistence, deterministic 27/30-Ranger weight test, tier-3 diamond-sword Sharpness V + Fire Aspect II override applied in-game and after restart, enchant toggle-off, override removal, golden-apple supply override, live inventory inspector, 6v6 battle regression, and debug-tree absence in release mode.
 - Dedicated-server checks passed for 12.5% specialist composition in a 64-soldier sample, all seven specialists, Medic consumption, Engineer fortifications, Alchemist debuffs, Lancer spears, Demolitionist TNT, squad coordination, and prior combat systems.
 - All source, documentation, Gradle wrapper files, and release JARs are committed and synchronized to the GitHub feature branch.
 - The repository's pre-existing Python encryption/web-app files remain outside the Gradle source sets and are unchanged.
