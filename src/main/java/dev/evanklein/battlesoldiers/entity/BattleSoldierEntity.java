@@ -147,7 +147,10 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob, Pol
 				.add(Attributes.MAX_HEALTH, 20.0)
 				.add(Attributes.MOVEMENT_SPEED, 0.22)
 				.add(Attributes.ATTACK_DAMAGE, 3.0)
-				.add(Attributes.FOLLOW_RANGE, 36.0);
+				.add(Attributes.FOLLOW_RANGE, 36.0)
+				// Player-like terrain flow: walk straight up single blocks instead
+				// of stopping to jump at every ledge.
+				.add(Attributes.STEP_HEIGHT, 1.0);
 	}
 
 	@Override

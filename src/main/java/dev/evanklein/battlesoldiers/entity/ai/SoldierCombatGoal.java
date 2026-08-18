@@ -46,6 +46,8 @@ public final class SoldierCombatGoal extends Goal {
 	private int feintCooldown;
 	private int feintTicks;
 	private int sprintBurstTicks;
+	private int hopCooldown;
+	private int strafeFlipAt = 18;
 	private CombatRole criticalRole = CombatRole.BRUTE;
 
 	public SoldierCombatGoal(BattleSoldierEntity soldier) {
@@ -116,10 +118,11 @@ public final class SoldierCombatGoal extends Goal {
 		}
 		if (this.sprintBurstTicks > 0) {
 			this.sprintBurstTicks--;
-			this.soldier.setSprinting(true);
-		} else {
-			this.soldier.setSprinting(false);
 		}
+		if (this.hopCooldown > 0) {
+			this.hopCooldown--;
+		}
+		this.tickMovementQuality(target);
 
 		double effectiveHealth = this.soldier.getHealth() + this.soldier.getAbsorptionAmount();
 		double predictedDamage = this.soldier.estimatedIncomingDamage(target);
@@ -165,6 +168,68 @@ public final class SoldierCombatGoal extends Goal {
 		return true;
 	}
 
+	/**
+	 * Player-like movement layer: real sprinting whenever closing distance,
+	 * sprint-jump hops on open ground, and an immediate momentum surge back
+	 * toward the fight after taking knockback instead of flailing to a stop.
+	 */
+	private void tickMovementQuality(LivingEntity target) {
+		boolean wantSprint = this.shouldSprint(target) || this.sprintBurstTicks > 0;
+		if (wantSprint != this.soldier.isSprinting()) {
+			this.soldier.setSprinting(wantSprint);
+		}
+
+		// Knockback recovery: hurtTime counts down from 10, so this fires once per hit.
+		if (this.soldier.hurtTime == 8 && !this.critJump) {
+			Vec3 toTarget = target.position().subtract(this.soldier.position());
+			Vec3 horizontal = new Vec3(toTarget.x, 0.0, toTarget.z);
+			if (horizontal.lengthSqr() > 4.0) {
+				Vec3 impulse = horizontal.normalize().scale(0.22);
+				Vec3 current = this.soldier.getDeltaMovement();
+				this.soldier.setDeltaMovement(current.x + impulse.x, current.y, current.z + impulse.z);
+			}
+			this.strafeClockwise = this.soldier.getRandom().nextBoolean();
+			this.strafeTicks = 0;
+			this.sprintBurstTicks = Math.max(this.sprintBurstTicks, 10);
+		}
+
+		// Sprint-jump bursts while chasing across open ground.
+		double distance = this.soldier.distanceToSqr(target);
+		if (distance > 25.0
+				&& this.hopCooldown <= 0
+				&& this.soldier.isSprinting()
+				&& this.soldier.onGround()
+				&& !this.soldier.isInWater()
+				&& this.soldier.getSensing().hasLineOfSight(target)
+				&& this.soldier.getDeltaMovement().horizontalDistanceSqr() > 0.02) {
+			this.soldier.getJumpControl().jump();
+			this.hopCooldown = 12 + this.soldier.getRandom().nextInt(10);
+		}
+	}
+
+	private boolean shouldSprint(LivingEntity target) {
+		if (this.soldier.isUsingItem()
+				|| this.critJump
+				|| this.attackWindup > 0
+				|| this.feintTicks > 0
+				|| this.shieldTicks > 0
+				|| this.soldier.isInWater()
+				|| this.soldier.isHoldingRangerPerch()) {
+			return false;
+		}
+		return this.soldier.distanceToSqr(target) > 9.0;
+	}
+
+	/** Strafe rhythm with randomized flip intervals so circling is not metronome-predictable. */
+	private void advanceStrafe(int baseInterval) {
+		if (++this.strafeTicks >= this.strafeFlipAt) {
+			this.strafeTicks = 0;
+			this.strafeFlipAt = Math.max(6, baseInterval / 2)
+					+ this.soldier.getRandom().nextInt(Math.max(4, baseInterval));
+			this.strafeClockwise = !this.strafeClockwise;
+		}
+	}
+
 	private boolean tickOverheadWeaponEvasion(LivingEntity target) {
 		ItemStack weapon = target.isUsingItem() ? target.getUseItem() : target.getMainHandItem();
 		boolean mace = weapon.is(Items.MACE) || weapon.getItem() instanceof MaceItem;
@@ -189,7 +254,7 @@ public final class SoldierCombatGoal extends Goal {
 		double predictionTicks = Mth.clamp(verticalDistance / 0.7, 2.0, 10.0);
 		Vec3 impact = target.position().add(target.getDeltaMovement().scale(predictionTicks));
 		this.moveAwayFromPoint(impact, 5.0, 1.18);
-		this.soldier.setSprinting(true);
+		this.sprintBurstTicks = Math.max(this.sprintBurstTicks, 6);
 		return true;
 	}
 
@@ -260,10 +325,7 @@ public final class SoldierCombatGoal extends Goal {
 		if (distance >= 7.0 && distance <= 25.0) {
 			this.soldier.getNavigation().stop();
 			this.soldier.getMoveControl().strafe(0.15F, this.strafeClockwise ? 0.45F : -0.45F);
-			if (++this.strafeTicks >= 24) {
-				this.strafeTicks = 0;
-				this.strafeClockwise = !this.strafeClockwise;
-			}
+			this.advanceStrafe(24);
 		}
 		this.tickMelee(target, CombatRole.TRAPPER);
 	}
@@ -375,10 +437,7 @@ public final class SoldierCombatGoal extends Goal {
 					distance < preferredMin * 1.35 ? -0.25F : 0.12F,
 					this.strafeClockwise ? 0.38F : -0.38F
 			);
-			if (++this.strafeTicks >= 30) {
-				this.strafeTicks = 0;
-				this.strafeClockwise = !this.strafeClockwise;
-			}
+			this.advanceStrafe(30);
 		}
 		this.tickBowDrawAndFire(target);
 	}
@@ -474,14 +533,14 @@ public final class SoldierCombatGoal extends Goal {
 						: this.attackWindupTicks(role);
 				this.soldier.setAttackTelegraphed(true);
 			} else {
+				// Player-like spacing: back out of trade range right after a
+				// swing, then surge back in as the next attack comes off cooldown.
+				float forward = this.attackCooldown > 5 ? -0.20F : 0.30F;
 				this.soldier.getMoveControl().strafe(
-						0.18F,
-						this.strafeClockwise ? 0.42F : -0.42F
+						forward,
+						this.strafeClockwise ? 0.48F : -0.48F
 				);
-				if (++this.strafeTicks >= 12) {
-					this.strafeTicks = 0;
-					this.strafeClockwise = !this.strafeClockwise;
-				}
+				this.advanceStrafe(14);
 			}
 			return;
 		}
@@ -495,29 +554,55 @@ public final class SoldierCombatGoal extends Goal {
 			this.strafeClockwise = !this.strafeClockwise;
 		}
 
+		double speed = switch (role) {
+			case VANGUARD -> 1.08;
+			case BRUTE -> 1.02;
+			case RANGER -> 1.05;
+			case TRAPPER -> 1.10;
+			case LANCER -> 1.08;
+			case DUELIST -> 1.16;
+			case ENDER_SKIRMISHER -> 1.14;
+			case MEDIC, ALCHEMIST -> 1.0;
+			case ENGINEER, DEMOLITIONIST -> 0.95;
+		};
+		if (soloEngagement) {
+			speed = Math.min(1.24, speed + 0.12);
+		}
+		// Close range with clear sight on similar ground: steer directly every
+		// tick (no A* node stutter) and weave laterally so the approach is a
+		// strafing arc rather than a straight mob line.
+		boolean directSteer = targetDistance <= 110.0
+				&& Math.abs(target.getY() - this.soldier.getY()) <= 1.5
+				&& this.soldier.getSensing().hasLineOfSight(target);
+		if (directSteer) {
+			this.soldier.getNavigation().stop();
+			double weave = targetDistance > 12.0 ? 1.1 : 0.0;
+			this.steerWeaving(target, speed, weave, role);
+			this.advanceStrafe(16);
+			this.pathCooldown = 0;
+			return;
+		}
 		if (this.pathCooldown-- <= 0 || this.soldier.getNavigation().isDone()) {
-			double speed = switch (role) {
-				case VANGUARD -> 1.08;
-				case BRUTE -> 1.02;
-				case RANGER -> 1.05;
-				case TRAPPER -> 1.10;
-				case LANCER -> 1.08;
-				case DUELIST -> 1.16;
-				case ENDER_SKIRMISHER -> 1.14;
-				case MEDIC, ALCHEMIST -> 1.0;
-				case ENGINEER, DEMOLITIONIST -> 0.95;
-			};
-			if (soloEngagement) {
-				speed = Math.min(1.24, speed + 0.12);
-			}
 			this.moveToPredicted(target, speed, role);
 			int decisionPeriod = SquadCoordinator.skill(this.soldier.getGearLevel()).decisionPeriodTicks();
 			this.pathCooldown = Math.max(2, decisionPeriod / 2)
 					+ this.soldier.getRandom().nextInt(2);
 		}
-		if (this.sprintBurstTicks <= 0) {
-			this.soldier.setSprinting(false);
+	}
+
+	/** Direct per-tick steering toward the predicted position with a lateral weave offset. */
+	private void steerWeaving(LivingEntity target, double speed, double weave, CombatRole role) {
+		Vec3 predicted = this.predictTargetPosition(target, speed, role);
+		if (weave > 0.0) {
+			Vec3 toPredicted = predicted.subtract(this.soldier.position());
+			Vec3 side = new Vec3(-toPredicted.z, 0.0, toPredicted.x);
+			if (side.lengthSqr() > 0.01) {
+				predicted = predicted.add(
+						side.normalize().scale(this.strafeClockwise ? weave : -weave)
+				);
+			}
 		}
+		this.soldier.getMoveControl().setWantedPosition(predicted.x, predicted.y, predicted.z, speed);
 	}
 
 	private void performMeleeAttack(LivingEntity target, CombatRole role) {

@@ -75,7 +75,9 @@ public final class DebugTools {
 					? "none"
 					: soldier.getTarget().getName().getString();
 			context.getSource().sendSystemMessage(Component.literal(
-					"[debug] " + soldier.getName().getString() + " -> " + targetName));
+					"[debug] " + soldier.getName().getString() + " -> " + targetName
+							+ " | sprinting=" + soldier.isSprinting()
+							+ " | pos=" + soldier.blockPosition().toShortString()));
 		}
 		context.getSource().sendSystemMessage(
 				Component.literal("[debug] " + soldiers.size() + " soldiers dumped"));
