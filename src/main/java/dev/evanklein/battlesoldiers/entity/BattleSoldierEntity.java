@@ -21,6 +21,7 @@ import dev.evanklein.battlesoldiers.entity.ai.ProjectileDodgeGoal;
 import dev.evanklein.battlesoldiers.entity.ai.ResourceShareGoal;
 import dev.evanklein.battlesoldiers.entity.ai.RangerElevationGoal;
 import dev.evanklein.battlesoldiers.entity.ai.SoldierCombatGoal;
+import dev.evanklein.battlesoldiers.entity.ai.SoldierMoveControl;
 import dev.evanklein.battlesoldiers.entity.ai.SoldierWanderGoal;
 import dev.evanklein.battlesoldiers.entity.ai.TacticalBuildGoal;
 import dev.evanklein.battlesoldiers.entity.ai.TrapperWebGoal;
@@ -129,6 +130,12 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob, Pol
 
 	public BattleSoldierEntity(EntityType<? extends BattleSoldierEntity> entityType, Level level) {
 		super(entityType, level);
+		this.moveControl = new SoldierMoveControl(this);
+	}
+
+	/** Strafe at a real speed instead of vanilla's hardcoded quarter-speed shuffle. */
+	public void combatStrafe(float forward, float sideways, double speedMultiplier) {
+		((SoldierMoveControl) this.getMoveControl()).strafeAt(forward, sideways, speedMultiplier);
 	}
 
 	/**

@@ -24,6 +24,7 @@ import net.minecraft.world.item.component.BlocksAttacks;
 import net.minecraft.world.item.component.KineticWeapon;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.EnumSet;
 
@@ -49,6 +50,11 @@ public final class SoldierCombatGoal extends Goal {
 	private int sprintBurstTicks;
 	private int hopCooldown;
 	private int strafeFlipAt = 18;
+	private int disengageTicks;
+	private int patienceTicks;
+	private int patienceCooldown;
+	private int sidestepCooldown;
+	private boolean holdingFlank;
 	private CombatRole criticalRole = CombatRole.BRUTE;
 
 	public SoldierCombatGoal(BattleSoldierEntity soldier) {
@@ -86,6 +92,9 @@ public final class SoldierCombatGoal extends Goal {
 		SquadCoordinator.releaseMelee(this.soldier);
 		this.attackWindup = 0;
 		this.critJump = false;
+		this.disengageTicks = 0;
+		this.patienceTicks = 0;
+		this.holdingFlank = false;
 	}
 
 	@Override
@@ -122,6 +131,12 @@ public final class SoldierCombatGoal extends Goal {
 		}
 		if (this.hopCooldown > 0) {
 			this.hopCooldown--;
+		}
+		if (this.patienceCooldown > 0) {
+			this.patienceCooldown--;
+		}
+		if (this.sidestepCooldown > 0) {
+			this.sidestepCooldown--;
 		}
 		this.tickMovementQuality(target);
 
@@ -218,15 +233,83 @@ public final class SoldierCombatGoal extends Goal {
 				|| this.soldier.isHoldingRangerPerch()) {
 			return false;
 		}
+		// Flankers waiting for an attack slot pace the perimeter calmly instead
+		// of sprint-orbiting like a mob ring.
+		if (this.holdingFlank && this.soldier.distanceToSqr(target) < 64.0) {
+			return false;
+		}
 		return this.soldier.distanceToSqr(target) > 9.0;
 	}
 
 	/** Strafe rhythm with randomized flip intervals so circling is not metronome-predictable. */
 	private void advanceStrafe(int baseInterval) {
+		this.advanceStrafe(baseInterval, null);
+	}
+
+	/**
+	 * With a target, flips bias 70% toward the side that circles behind the
+	 * target's view direction — soldiers work toward your back like players.
+	 */
+	private void advanceStrafe(int baseInterval, @Nullable LivingEntity target) {
 		if (++this.strafeTicks >= this.strafeFlipAt) {
 			this.strafeTicks = 0;
 			this.strafeFlipAt = Math.max(6, baseInterval / 2)
 					+ this.soldier.getRandom().nextInt(Math.max(4, baseInterval));
+			if (target != null && this.soldier.getRandom().nextFloat() < 0.7F) {
+				Vec3 view = target.getLookAngle();
+				Vec3 toSoldier = this.soldier.position().subtract(target.position());
+				double cross = view.x * toSoldier.z - view.z * toSoldier.x;
+				this.strafeClockwise = cross < 0.0;
+			} else {
+				this.strafeClockwise = !this.strafeClockwise;
+			}
+		}
+	}
+
+	/** True while the soldier should keep respecting a ready, aimed opponent. */
+	private boolean shouldWaitForOpening(LivingEntity target, boolean soloEngagement) {
+		if (!(target instanceof Player player) || this.patienceCooldown > 0) {
+			return false;
+		}
+		boolean aimedAndReady = this.isFacingSoldier(target, 0.55)
+				&& player.getAttackStrengthScale(0.0F) >= 0.65F
+				&& !player.isUsingItem();
+		if (!aimedAndReady) {
+			this.patienceTicks = 0;
+			return false;
+		}
+		if (this.patienceTicks <= 0) {
+			int base = soloEngagement ? 6 : 11;
+			this.patienceTicks = Math.max(
+					3,
+					base + this.soldier.getRandom().nextInt(12) - this.soldier.getGearLevel().id()
+			);
+		}
+		if (--this.patienceTicks <= 0) {
+			// Patience spent: commit anyway and stay committed for a while.
+			this.patienceCooldown = 30 + this.soldier.getRandom().nextInt(20);
+			return false;
+		}
+		return true;
+	}
+
+	/** Poised at the edge of trade range: circling, adjusting, facing the target. */
+	private void holdPokeRange(LivingEntity target) {
+		this.soldier.getNavigation().stop();
+		double distance = this.soldier.distanceToSqr(target);
+		float forward = distance < 5.0 ? -0.30F : distance > 10.5 ? 0.30F : 0.05F;
+		this.soldier.combatStrafe(forward, this.strafeClockwise ? 0.55F : -0.55F, 1.05);
+		this.advanceStrafe(10, target);
+	}
+
+	/** Recovery movement: arc out to reset spacing while staying locked on. */
+	private void tickDisengage(LivingEntity target) {
+		this.soldier.getNavigation().stop();
+		double distance = this.soldier.distanceToSqr(target);
+		float back = distance < 20.25 ? -0.85F : 0.05F;
+		this.soldier.combatStrafe(back, this.strafeClockwise ? 0.42F : -0.42F, 1.2);
+		this.advanceStrafe(12, target);
+		if (this.soldier.horizontalCollision) {
 			this.strafeClockwise = !this.strafeClockwise;
 		}
 	}
@@ -325,8 +408,8 @@ public final class SoldierCombatGoal extends Goal {
 		double distance = this.soldier.distanceToSqr(target);
 		if (distance >= 7.0 && distance <= 25.0) {
 			this.soldier.getNavigation().stop();
-			this.soldier.getMoveControl().strafe(0.15F, this.strafeClockwise ? 0.45F : -0.45F);
-			this.advanceStrafe(24);
+			this.soldier.combatStrafe(0.15F, this.strafeClockwise ? 0.45F : -0.45F, 1.0);
+			this.advanceStrafe(24, target);
 		}
 		this.tickMelee(target, CombatRole.TRAPPER);
 	}
@@ -434,11 +517,12 @@ public final class SoldierCombatGoal extends Goal {
 
 		this.soldier.getNavigation().stop();
 		if (hasFrontline) {
-			this.soldier.getMoveControl().strafe(
+			this.soldier.combatStrafe(
 					distance < preferredMin * 1.35 ? -0.25F : 0.12F,
-					this.strafeClockwise ? 0.38F : -0.38F
+					this.strafeClockwise ? 0.38F : -0.38F,
+					1.0
 			);
-			this.advanceStrafe(30);
+			this.advanceStrafe(30, target);
 		}
 		this.tickBowDrawAndFire(target);
 	}
@@ -468,10 +552,26 @@ public final class SoldierCombatGoal extends Goal {
 	private void tickMelee(LivingEntity target, CombatRole role) {
 		double targetDistance = this.soldier.distanceToSqr(target);
 		boolean soloEngagement = SquadCoordinator.isSoloEngagement(this.soldier, target);
+
+		// Hit-and-run rhythm: after a swing lands (or a combo ends), spend the
+		// recovery arcing OUT of trade range instead of hugging the target.
+		if (this.disengageTicks > 0) {
+			boolean chasedDown = this.attackCooldown <= 0 && targetDistance <= 6.25;
+			if (chasedDown) {
+				// They followed us out: turn and take the fight.
+				this.disengageTicks = 0;
+			} else {
+				this.disengageTicks--;
+				this.tickDisengage(target);
+				return;
+			}
+		}
+
 		if (!soloEngagement && targetDistance <= 36.0) {
 			SquadCoordinator.MeleeDirective directive =
 					SquadCoordinator.meleeDirective(this.soldier, target);
 			if (!directive.mayWindup()) {
+				this.holdingFlank = true;
 				this.soldier.setAttackTelegraphed(false);
 				this.soldier.getNavigation().moveTo(
 						directive.position().x,
@@ -481,10 +581,31 @@ public final class SoldierCombatGoal extends Goal {
 				);
 				return;
 			}
+			this.holdingFlank = false;
+		} else {
+			this.holdingFlank = false;
 		}
+
+		// Read-and-dodge: sidestep an incoming swing when no shield is available.
+		if (this.sidestepCooldown <= 0
+				&& this.attackWindup <= 0
+				&& !this.critJump
+				&& this.soldier.onGround()
+				&& !this.soldier.getOffhandItem().is(Items.SHIELD)
+				&& targetDistance <= 12.25
+				&& this.isMeleeAttackImminent(target)) {
+			Vec3 toTarget = target.position().subtract(this.soldier.position());
+			Vec3 side = new Vec3(-toTarget.z, 0.0, toTarget.x);
+			if (side.lengthSqr() > 0.01) {
+				side = side.normalize().scale(this.strafeClockwise ? 0.30 : -0.30);
+				this.soldier.addDeltaMovement(new Vec3(side.x, 0.0, side.z));
+			}
+			this.sidestepCooldown = Math.max(16, 46 - this.soldier.getGearLevel().id() * 4);
+		}
+
 		if (this.feintTicks > 0) {
 			this.soldier.getNavigation().stop();
-			this.soldier.getMoveControl().strafe(-0.12F, this.strafeClockwise ? 0.55F : -0.55F);
+			this.soldier.combatStrafe(-0.12F, this.strafeClockwise ? 0.55F : -0.55F, 1.1);
 			if (--this.feintTicks == 0) {
 				this.attackWindup = Math.max(3, this.attackWindupTicks(role) / 2);
 				this.soldier.setAttackTelegraphed(true);
@@ -508,7 +629,7 @@ public final class SoldierCombatGoal extends Goal {
 			}
 			if (this.soldier.isWithinMeleeAttackRange(target)) {
 				this.soldier.getNavigation().stop();
-				this.soldier.getMoveControl().strafe(0.08F, this.strafeClockwise ? 0.28F : -0.28F);
+				this.soldier.combatStrafe(0.08F, this.strafeClockwise ? 0.28F : -0.28F, 0.9);
 			} else {
 				this.steerTowardPrediction(target, 0.82);
 			}
@@ -529,6 +650,13 @@ public final class SoldierCombatGoal extends Goal {
 		if (inCommitRange) {
 			this.soldier.getNavigation().stop();
 			if (this.attackCooldown <= 0) {
+				// Respect a ready, aimed opponent: hold poke range and wait for
+				// their swing, their back, or an item use before committing.
+				if (this.shouldWaitForOpening(target, soloEngagement)) {
+					this.holdPokeRange(target);
+					return;
+				}
+				this.patienceTicks = 0;
 				if (target.isBlocking() && role == CombatRole.VANGUARD) {
 					this.soldier.equipAxe();
 				}
@@ -541,11 +669,8 @@ public final class SoldierCombatGoal extends Goal {
 				// immobilized (webbed) target; that is free damage.
 				boolean targetStuck = target.getInBlockState().is(Blocks.COBWEB);
 				float forward = !targetStuck && this.attackCooldown > 8 ? -0.12F : 0.30F;
-				this.soldier.getMoveControl().strafe(
-						forward,
-						this.strafeClockwise ? 0.48F : -0.48F
-				);
-				this.advanceStrafe(14);
+				this.soldier.combatStrafe(forward, this.strafeClockwise ? 0.48F : -0.48F, 1.05);
+				this.advanceStrafe(14, target);
 			} else {
 				// At the commit-range edge on cooldown: keep closing pressure.
 				this.steerTowardPrediction(target, 0.92);
@@ -555,10 +680,7 @@ public final class SoldierCombatGoal extends Goal {
 
 		if (this.soldier.horizontalCollision && targetDistance <= 16.0) {
 			this.soldier.getJumpControl().jump();
-			this.soldier.getMoveControl().strafe(
-					0.32F,
-					this.strafeClockwise ? 0.62F : -0.62F
-			);
+			this.soldier.combatStrafe(0.32F, this.strafeClockwise ? 0.62F : -0.62F, 1.1);
 			this.strafeClockwise = !this.strafeClockwise;
 		}
 
@@ -651,10 +773,22 @@ public final class SoldierCombatGoal extends Goal {
 			}
 		}
 		int recovery = this.attackRecoveryTicks(role) - this.comboCount * 2;
-		if (SquadCoordinator.isSoloEngagement(this.soldier, target)) {
+		boolean solo = SquadCoordinator.isSoloEngagement(this.soldier, target);
+		if (solo) {
 			recovery = (int) Math.ceil(recovery * 0.65);
 		}
-		this.attackCooldown = Math.max(7, recovery);
+		// Human cadence jitter instead of a metronome.
+		this.attackCooldown = Math.max(7, recovery) + this.soldier.getRandom().nextInt(3) - 1;
+		// Hit-and-run: stay in only to continue a fresh combo; otherwise arc out
+		// for the recovery instead of standing in trade range.
+		boolean stayForCombo = hit
+				&& this.comboCount < 2
+				&& this.soldier.getRandom().nextFloat() < (solo ? 0.60F : 0.40F);
+		boolean targetStuck = target.getInBlockState().is(Blocks.COBWEB);
+		if (!stayForCombo && !targetStuck) {
+			// Slightly longer than the cooldown: a visible reset pass, not a wobble.
+			this.disengageTicks = this.attackCooldown + 4 + this.soldier.getRandom().nextInt(6);
+		}
 		SquadCoordinator.releaseMelee(this.soldier);
 		if (role == CombatRole.VANGUARD) {
 			this.soldier.equipSword();

@@ -200,7 +200,9 @@ public final class SquadCoordinator {
 		int slot = Math.floorMod(soldierId.hashCode(), 12);
 		double side = slot % 2 == 0 ? 1.0 : -1.0;
 		double angle = Math.toRadians(65.0 + (slot / 2) * 18.0) * side;
-		double radius = 4.5 + (slot / 6) * 1.5;
+		// Waiting flankers hold a wider ring so the squad reads as teammates
+		// spacing around a fight rather than a zombie crowd pressing in.
+		double radius = 5.5 + (slot / 6) * 1.75;
 		Vec3 approach = squadCentroid(board).subtract(target.position());
 		if (approach.horizontalDistanceSqr() < 0.01) {
 			approach = new Vec3(1.0, 0.0, 0.0);
