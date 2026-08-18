@@ -22,6 +22,7 @@ import net.minecraft.world.item.MaceItem;
 import net.minecraft.world.item.TridentItem;
 import net.minecraft.world.item.component.BlocksAttacks;
 import net.minecraft.world.item.component.KineticWeapon;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.EnumSet;
@@ -522,7 +523,10 @@ public final class SoldierCombatGoal extends Goal {
 			return;
 		}
 
-		if (this.soldier.isWithinMeleeAttackRange(target)) {
+		// Commit to the attack slightly outside strict reach: the windup steers
+		// inward, so swings start on approach the way players click into range.
+		boolean inCommitRange = this.soldier.isWithinMeleeAttackRange(target) || targetDistance <= 6.25;
+		if (inCommitRange) {
 			this.soldier.getNavigation().stop();
 			if (this.attackCooldown <= 0) {
 				if (target.isBlocking() && role == CombatRole.VANGUARD) {
@@ -532,15 +536,19 @@ public final class SoldierCombatGoal extends Goal {
 						? Math.min(6, this.attackWindupTicks(role))
 						: this.attackWindupTicks(role);
 				this.soldier.setAttackTelegraphed(true);
-			} else {
-				// Player-like spacing: back out of trade range right after a
-				// swing, then surge back in as the next attack comes off cooldown.
-				float forward = this.attackCooldown > 5 ? -0.20F : 0.30F;
+			} else if (this.soldier.isWithinMeleeAttackRange(target)) {
+				// Player-like spacing during recovery — but never step off an
+				// immobilized (webbed) target; that is free damage.
+				boolean targetStuck = target.getInBlockState().is(Blocks.COBWEB);
+				float forward = !targetStuck && this.attackCooldown > 8 ? -0.12F : 0.30F;
 				this.soldier.getMoveControl().strafe(
 						forward,
 						this.strafeClockwise ? 0.48F : -0.48F
 				);
 				this.advanceStrafe(14);
+			} else {
+				// At the commit-range edge on cooldown: keep closing pressure.
+				this.steerTowardPrediction(target, 0.92);
 			}
 			return;
 		}

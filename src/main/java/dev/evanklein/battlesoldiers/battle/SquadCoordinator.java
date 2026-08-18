@@ -135,6 +135,7 @@ public final class SquadCoordinator {
 		UUID soldierId = soldier.getUUID();
 		board.soldiers.remove(soldierId);
 		board.reservationBySoldier.remove(soldierId);
+		board.reservationTouches.remove(soldierId);
 		board.meleeReservations.values().forEach(reservations -> reservations.remove(soldierId));
 	}
 
@@ -168,21 +169,31 @@ public final class SquadCoordinator {
 			}
 			return new MeleeDirective(false, fallback, -1);
 		}
+		UUID targetId = target.getUUID();
 		LinkedHashSet<UUID> reservations =
-				board.meleeReservations.computeIfAbsent(target.getUUID(), ignored -> new LinkedHashSet<>());
+				board.meleeReservations.computeIfAbsent(targetId, ignored -> new LinkedHashSet<>());
+		// A slot is only valid while its holder is alive, still targeting this
+		// entity, and actively running its melee loop (touching the reservation).
+		// Anything else (target switches, healing pauses, deaths) frees the slot
+		// so attackers never orbit a fully-ghosted ring.
 		reservations.removeIf(id -> {
 			Presence presence = board.soldiers.get(id);
-			return presence == null || tick - presence.tick() > 20;
+			return presence == null
+					|| tick - presence.tick() > 20
+					|| !targetId.equals(presence.targetId())
+					|| tick - board.reservationTouches.getOrDefault(id, 0L) > 30;
 		});
 		UUID soldierId = soldier.getUUID();
 		int maxAttackers = skill(soldier.getGearLevel()).maxMeleeAttackers();
 		if (reservations.contains(soldierId)) {
-			board.reservationBySoldier.put(soldierId, target.getUUID());
+			board.reservationBySoldier.put(soldierId, targetId);
+			board.reservationTouches.put(soldierId, tick);
 			return new MeleeDirective(true, target.position(), 0);
 		}
 		if (reservations.size() < maxAttackers) {
 			reservations.add(soldierId);
-			board.reservationBySoldier.put(soldierId, target.getUUID());
+			board.reservationBySoldier.put(soldierId, targetId);
+			board.reservationTouches.put(soldierId, tick);
 			return new MeleeDirective(true, target.position(), reservations.size() - 1);
 		}
 
@@ -207,11 +218,13 @@ public final class SquadCoordinator {
 
 	public static void releaseMelee(BattleSoldierEntity soldier) {
 		SquadBoard board = squadBoard(soldier);
-		UUID targetId = board.reservationBySoldier.remove(soldier.getUUID());
+		UUID soldierId = soldier.getUUID();
+		board.reservationTouches.remove(soldierId);
+		UUID targetId = board.reservationBySoldier.remove(soldierId);
 		if (targetId != null) {
 			Set<UUID> reservations = board.meleeReservations.get(targetId);
 			if (reservations != null) {
-				reservations.remove(soldier.getUUID());
+				reservations.remove(soldierId);
 			}
 		}
 	}
@@ -444,6 +457,7 @@ public final class SquadCoordinator {
 		board.soldiers.entrySet().removeIf(entry -> tick - entry.getValue().tick() > STALE_TICKS);
 		board.meleeReservations.values().forEach(set -> set.removeIf(id -> !board.soldiers.containsKey(id)));
 		board.reservationBySoldier.keySet().removeIf(id -> !board.soldiers.containsKey(id));
+		board.reservationTouches.keySet().removeIf(id -> !board.soldiers.containsKey(id));
 		if (board.sharedTarget != null && tick - board.sharedTargetTick > 200) {
 			board.sharedTarget = null;
 			board.sharedTargetScore = 0.0;
@@ -539,6 +553,7 @@ public final class SquadCoordinator {
 		final Map<UUID, Presence> soldiers = new HashMap<>();
 		final Map<UUID, LinkedHashSet<UUID>> meleeReservations = new HashMap<>();
 		final Map<UUID, UUID> reservationBySoldier = new HashMap<>();
+		final Map<UUID, Long> reservationTouches = new HashMap<>();
 		final Map<UUID, HabitState> habits = new HashMap<>();
 		final Map<UUID, ComboState> combos = new HashMap<>();
 		@Nullable UUID sharedTarget;

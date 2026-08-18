@@ -673,6 +673,17 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob, Pol
 	}
 
 	@Override
+	public void setTarget(@Nullable LivingEntity target) {
+		// A melee reservation belongs to a specific target; dropping or switching
+		// targets must free the attack slot or the squad's attacker cap fills
+		// with ghosts and everyone orbits without swinging.
+		if (this.getTarget() != target) {
+			SquadCoordinator.releaseMelee(this);
+		}
+		super.setTarget(target);
+	}
+
+	@Override
 	public boolean canAttack(LivingEntity target) {
 		boolean valid = target instanceof BattleSoldierEntity soldier
 				? this.isValidSoldierTarget(soldier)

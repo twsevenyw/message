@@ -61,7 +61,26 @@ public final class DebugTools {
 				.then(Commands.literal("menuinfo")
 						.then(Commands.argument("name", StringArgumentType.word())
 								.executes(DebugTools::menuInfo)))
-				.then(Commands.literal("targets").executes(DebugTools::dumpTargets));
+				.then(Commands.literal("targets").executes(DebugTools::dumpTargets))
+				.then(Commands.literal("revive")
+						.then(Commands.argument("name", StringArgumentType.word())
+								.executes(DebugTools::revive)));
+	}
+
+	private static int revive(CommandContext<CommandSourceStack> context) {
+		ServerPlayer player = fake(context);
+		if (player == null) {
+			context.getSource().sendSystemMessage(Component.literal("[debug] no such fake player"));
+			return 0;
+		}
+		if (player.isDeadOrDying()) {
+			player = context.getSource().getServer().getPlayerList()
+					.respawn(player, false, net.minecraft.world.entity.Entity.RemovalReason.KILLED);
+		}
+		context.getSource().sendSystemMessage(Component.literal(
+				"[debug] revived " + player.getName().getString()
+						+ " at " + player.blockPosition().toShortString()));
+		return 1;
 	}
 
 	private static int dumpTargets(CommandContext<CommandSourceStack> context) {
