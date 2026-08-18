@@ -1,12 +1,3 @@
 {
-	"entity.battle_soldiers.soldier": "Battle Soldier",
-	"commands.battle_soldiers.spawned": "Deployed %s level-%s soldier(s).",
-	"commands.battle_soldiers.battle": "Battle started: %s red vs %s blue.",
-	"commands.battle_soldiers.cleared": "Removed %s soldier(s) and cleaned up tactical blocks.",
-	"commands.battle_soldiers.status": "%s active soldier(s): %s training, %s red, %s blue; %s engaged, %s actively blocking, %s reactive shield raises, %s landed criticals, %s validated escape blocks, %s homing Ranger shots.",
-	"commands.battle_soldiers.joined": "Joined the %s squad.",
-	"commands.battle_soldiers.left": "Left all soldier squads.",
-	"commands.battle_soldiers.limit": "The battlefield limit of %s active soldiers has been reached.",
-	"commands.battle_soldiers.partial": "Only %s of %s requested soldiers fit under the battlefield limit.",
-	"commands.battle_soldiers.not_enough_room": "This battle needs %s free soldier slots, but only %s remain."
+	"entity.battle_soldiers.soldier": "Battle Soldier"
 }

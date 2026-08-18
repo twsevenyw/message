@@ -1,6 +1,7 @@
 package dev.evanklein.battlesoldiers.entity;
 
 import dev.evanklein.battlesoldiers.BattleSoldiersMod;
+import eu.pb4.polymer.core.api.entity.PolymerEntityUtils;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -31,5 +32,8 @@ public final class ModEntities {
 
 	public static void register() {
 		FabricDefaultAttributeRegistry.register(SOLDIER, BattleSoldierEntity.createSoldierAttributes());
+		// Marks the type as Polymer-managed so it is hidden from vanilla-client
+		// registry sync and disguised in tracking packets.
+		PolymerEntityUtils.registerType(SOLDIER);
 	}
 }

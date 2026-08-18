@@ -25,6 +25,7 @@ import dev.evanklein.battlesoldiers.entity.ai.SoldierWanderGoal;
 import dev.evanklein.battlesoldiers.entity.ai.TacticalBuildGoal;
 import dev.evanklein.battlesoldiers.entity.ai.TrapperWebGoal;
 import dev.evanklein.battlesoldiers.entity.ai.UseCombatConsumableGoal;
+import eu.pb4.polymer.core.api.entity.PolymerEntity;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.core.BlockPos;
@@ -90,12 +91,13 @@ import net.minecraft.world.level.portal.TeleportTransition;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
+import xyz.nucleoid.packettweaker.PacketContext;
 
 import java.util.EnumSet;
 import java.util.OptionalInt;
 import java.util.function.Predicate;
 
-public class BattleSoldierEntity extends Monster implements RangedAttackMob {
+public class BattleSoldierEntity extends Monster implements RangedAttackMob, PolymerEntity {
 	private static final String INVENTORY_TAG = "SoldierInventory";
 	private static final int NO_SLOT = -1;
 
@@ -127,6 +129,17 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 
 	public BattleSoldierEntity(EntityType<? extends BattleSoldierEntity> entityType, Level level) {
 		super(entityType, level);
+	}
+
+	/**
+	 * Clients without this mod (vanilla clients included) see the soldier as a
+	 * plain zombie: the hitbox matches (0.6x1.95, eye 1.74) and equipment,
+	 * names, and poses sync through vanilla packets. All AI stays server-side,
+	 * so joining players need nothing installed.
+	 */
+	@Override
+	public EntityType<?> getPolymerEntityType(PacketContext context) {
+		return EntityType.ZOMBIE;
 	}
 
 	public static AttributeSupplier.Builder createSoldierAttributes() {

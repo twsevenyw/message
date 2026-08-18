@@ -122,7 +122,7 @@ public final class SoldierCommands {
 			ServerPlayer player = context.getSource().getPlayerOrException();
 			BattleTeams.joinPlayer(player, squad);
 			context.getSource().sendSuccess(
-					() -> Component.translatable("commands.battle_soldiers.joined", squad.displayName()),
+					() -> Component.literal("Joined the " + squad.displayName() + " squad."),
 					false
 			);
 			return 1;
@@ -152,22 +152,20 @@ public final class SoldierCommands {
 	) {
 		int room = MAX_ACTIVE_SOLDIERS - countActive(source.getServer());
 		if (room <= 0) {
-			source.sendFailure(Component.translatable("commands.battle_soldiers.limit", MAX_ACTIVE_SOLDIERS));
+			source.sendFailure(Component.literal(
+					"The battlefield limit of " + MAX_ACTIVE_SOLDIERS + " active soldiers has been reached."));
 			return 0;
 		}
 
 		int count = Math.min(requested, room);
 		int spawned = spawnFormation(source.getLevel(), center, count, squad, gear);
 		source.sendSuccess(
-				() -> Component.translatable(
-						"commands.battle_soldiers.spawned",
-						spawned,
-						gear.id()
-				),
+				() -> Component.literal("Deployed " + spawned + " level-" + gear.id() + " soldier(s)."),
 				true
 		);
 		if (count < requested) {
-			source.sendFailure(Component.translatable("commands.battle_soldiers.partial", count, requested));
+			source.sendFailure(Component.literal(
+					"Only " + count + " of " + requested + " requested soldiers fit under the battlefield limit."));
 		}
 		return spawned;
 	}
@@ -179,11 +177,8 @@ public final class SoldierCommands {
 		GearLevel blueGear = GearLevel.byId(IntegerArgumentType.getInteger(context, "blue-gear"));
 		int room = MAX_ACTIVE_SOLDIERS - countActive(source.getServer());
 		if (room < count * 2) {
-			source.sendFailure(Component.translatable(
-					"commands.battle_soldiers.not_enough_room",
-					count * 2,
-					room
-			));
+			source.sendFailure(Component.literal(
+					"This battle needs " + count * 2 + " free soldier slots, but only " + room + " remain."));
 			return 0;
 		}
 
@@ -204,7 +199,7 @@ public final class SoldierCommands {
 				blueGear
 		);
 		source.sendSuccess(
-				() -> Component.translatable("commands.battle_soldiers.battle", red, blue),
+				() -> Component.literal("Battle started: " + red + " red vs " + blue + " blue."),
 				true
 		);
 		return red + blue;
@@ -248,7 +243,7 @@ public final class SoldierCommands {
 		ServerPlayer player = context.getSource().getPlayerOrException();
 		BattleTeams.leavePlayer(player);
 		context.getSource().sendSuccess(
-				() -> Component.translatable("commands.battle_soldiers.left"),
+				() -> Component.literal("Left all soldier squads."),
 				false
 		);
 		return 1;
@@ -266,7 +261,7 @@ public final class SoldierCommands {
 
 		int result = removed;
 		context.getSource().sendSuccess(
-				() -> Component.translatable("commands.battle_soldiers.cleared", result),
+				() -> Component.literal("Removed " + result + " soldier(s) and cleaned up tactical blocks."),
 				true
 		);
 		return removed;
@@ -311,18 +306,14 @@ public final class SoldierCommands {
 		int escapeBlocksResult = escapeBlocks;
 		int homingShotsResult = homingShots;
 		context.getSource().sendSuccess(
-				() -> Component.translatable(
-						"commands.battle_soldiers.status",
-						total,
-						trainingResult,
-						redResult,
-						blueResult,
-						engagedResult,
-						blockingResult,
-						reactiveBlocksResult,
-						criticalHitsResult,
-						escapeBlocksResult,
-						homingShotsResult
+				() -> Component.literal(
+						total + " active soldier(s): " + trainingResult + " training, "
+								+ redResult + " red, " + blueResult + " blue; "
+								+ engagedResult + " engaged, " + blockingResult + " actively blocking, "
+								+ reactiveBlocksResult + " reactive shield raises, "
+								+ criticalHitsResult + " landed criticals, "
+								+ escapeBlocksResult + " validated escape blocks, "
+								+ homingShotsResult + " homing Ranger shots."
 				),
 				false
 		);

@@ -6,6 +6,13 @@ plugins {
 version = project.mod_version
 group = project.maven_group
 
+repositories {
+	maven {
+		name = "Nucleoid"
+		url = "https://maven.nucleoid.xyz/"
+	}
+}
+
 base {
 	archivesName = project.archives_base_name
 }
@@ -26,6 +33,9 @@ dependencies {
 	mappings loom.officialMojangMappings()
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	// Polymer lets vanilla clients join: soldiers are disguised as zombies on the wire.
+	// Bundled jar-in-jar so server owners only install this mod + Fabric API.
+	modImplementation include("eu.pb4:polymer-bundled:${project.polymer_version}")
 }
 
 processResources {
