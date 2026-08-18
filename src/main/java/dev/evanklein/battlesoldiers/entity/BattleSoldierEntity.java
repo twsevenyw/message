@@ -1764,6 +1764,48 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob, Pol
 		}
 	}
 
+	/**
+	 * Squad focus fire is advisory, not absolute: a soldier already fighting a
+	 * live, attackable target keeps it (so retaliation from HurtByTargetGoal
+	 * sticks), and idle soldiers only rally to the squad's shared target when
+	 * no other valid enemy player is clearly closer. This lets squads split
+	 * across multiple players instead of tunneling one until it dies.
+	 */
+	private void adoptSharedTargetIfIdle() {
+		LivingEntity current = this.getTarget();
+		if (current != null && current.isAlive() && this.canAttack(current)) {
+			return;
+		}
+		LivingEntity shared = SquadCoordinator.sharedTarget(this);
+		Player nearest = this.findNearestValidPlayerTarget();
+		if (shared != null
+				&& (nearest == null
+						|| this.distanceToSqr(nearest) * 2.25 >= this.distanceToSqr(shared))) {
+			this.setTarget(shared);
+		} else if (nearest != null) {
+			this.setTarget(nearest);
+		}
+	}
+
+	@Nullable
+	private Player findNearestValidPlayerTarget() {
+		double maxRange = this.getAttributeValue(Attributes.FOLLOW_RANGE);
+		double maxRangeSquared = maxRange * maxRange;
+		Player nearest = null;
+		double nearestDistance = Double.MAX_VALUE;
+		for (Player player : this.level().players()) {
+			if (!this.isValidPlayerTarget(player)) {
+				continue;
+			}
+			double distance = this.distanceToSqr(player);
+			if (distance <= maxRangeSquared && distance < nearestDistance) {
+				nearest = player;
+				nearestDistance = distance;
+			}
+		}
+		return nearest;
+	}
+
 	@Override
 	public void tick() {
 		super.tick();
@@ -1773,12 +1815,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob, Pol
 			}
 			if (this.tickCount % 4 == Math.floorMod(this.getId(), 4)) {
 				SquadCoordinator.heartbeat(this);
-				LivingEntity sharedTarget = SquadCoordinator.sharedTarget(this);
-				if (sharedTarget != null
-						&& (this.getTarget() == null
-								|| !this.getTarget().getUUID().equals(sharedTarget.getUUID()))) {
-					this.setTarget(sharedTarget);
-				}
+				this.adoptSharedTargetIfIdle();
 			}
 			if (this.consumableCooldown > 0) {
 				this.consumableCooldown--;

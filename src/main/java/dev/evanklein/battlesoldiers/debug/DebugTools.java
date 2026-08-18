@@ -5,6 +5,8 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
+import dev.evanklein.battlesoldiers.entity.BattleSoldierEntity;
+import dev.evanklein.battlesoldiers.entity.ModEntities;
 import dev.evanklein.battlesoldiers.gui.SoldierMenus;
 import io.netty.channel.embedded.EmbeddedChannel;
 import net.minecraft.commands.CommandSourceStack;
@@ -15,6 +17,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ClientInformation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -57,7 +60,26 @@ public final class DebugTools {
 														.executes(DebugTools::clickMenu))))))
 				.then(Commands.literal("menuinfo")
 						.then(Commands.argument("name", StringArgumentType.word())
-								.executes(DebugTools::menuInfo)));
+								.executes(DebugTools::menuInfo)))
+				.then(Commands.literal("targets").executes(DebugTools::dumpTargets));
+	}
+
+	private static int dumpTargets(CommandContext<CommandSourceStack> context) {
+		MinecraftServer server = context.getSource().getServer();
+		java.util.List<BattleSoldierEntity> soldiers = new java.util.ArrayList<>();
+		for (ServerLevel level : server.getAllLevels()) {
+			level.getEntities(ModEntities.SOLDIER, entity -> entity.isAlive(), soldiers);
+		}
+		for (BattleSoldierEntity soldier : soldiers) {
+			String targetName = soldier.getTarget() == null
+					? "none"
+					: soldier.getTarget().getName().getString();
+			context.getSource().sendSystemMessage(Component.literal(
+					"[debug] " + soldier.getName().getString() + " -> " + targetName));
+		}
+		context.getSource().sendSystemMessage(
+				Component.literal("[debug] " + soldiers.size() + " soldiers dumped"));
+		return soldiers.size();
 	}
 
 	private static int joinFake(CommandContext<CommandSourceStack> context) {
