@@ -57,6 +57,7 @@ public final class SoldierCombatGoal extends Goal {
 	private int patienceCooldown;
 	private int sidestepCooldown;
 	private int webBreakTicks;
+	private int comboChaseTicks;
 	private boolean holdingFlank;
 	private CombatRole criticalRole = CombatRole.BRUTE;
 
@@ -97,6 +98,7 @@ public final class SoldierCombatGoal extends Goal {
 		this.critJump = false;
 		this.disengageTicks = 0;
 		this.patienceTicks = 0;
+		this.comboChaseTicks = 0;
 		this.holdingFlank = false;
 	}
 
@@ -397,6 +399,33 @@ public final class SoldierCombatGoal extends Goal {
 		this.advanceStrafe(10, target);
 	}
 
+	/**
+	 * Combo pursuit: full sprint at the knocked-back target, no weaving, no
+	 * windup — the next hit is an instant click timed to the end of their
+	 * 10-tick hurt invulnerability, exactly like a player holding a combo.
+	 */
+	private void tickComboChase(LivingEntity target, CombatRole role) {
+		this.soldier.getNavigation().stop();
+		// Re-sprint after the W-tap so every combo hit carries sprint knockback.
+		this.sprintBurstTicks = Math.max(this.sprintBurstTicks, 2);
+		Vec3 predicted = this.predictTargetPosition(target, 1.3, role);
+		this.soldier.getMoveControl().setWantedPosition(predicted.x, predicted.y, predicted.z, 1.3);
+		if (this.soldier.horizontalCollision && this.hopCooldown <= 0) {
+			this.soldier.getJumpControl().jump();
+			this.hopCooldown = 6;
+		}
+		if (this.attackCooldown <= 0 && this.soldier.isWithinMeleeAttackRange(target)) {
+			this.performMeleeAttack(target, role);
+		}
+	}
+
+	private void endComboChase(CombatRole role) {
+		this.comboChaseTicks = 0;
+		// Rest after the flurry: full recovery spent resetting spacing.
+		this.attackCooldown = Math.max(this.attackCooldown, this.attackRecoveryTicks(role));
+		this.disengageTicks = this.attackCooldown + 4;
+	}
+
 	/** Recovery movement: arc out to reset spacing while staying locked on. */
 	private void tickDisengage(LivingEntity target) {
 		this.soldier.getNavigation().stop();
@@ -648,6 +677,18 @@ public final class SoldierCombatGoal extends Goal {
 		double targetDistance = this.soldier.distanceToSqr(target);
 		boolean soloEngagement = SquadCoordinator.isSoloEngagement(this.soldier, target);
 
+		// Combo mode: ride the knockback of a landed hit, sprint-chasing the
+		// reeling target and clicking again the moment their hurt window ends.
+		if (this.comboChaseTicks > 0) {
+			this.comboChaseTicks--;
+			if (this.comboChaseTicks <= 0 || targetDistance > 30.25 || !target.isAlive()) {
+				this.endComboChase(role);
+			} else {
+				this.tickComboChase(target, role);
+				return;
+			}
+		}
+
 		// Hit-and-run rhythm: after a swing lands (or a combo ends), spend the
 		// recovery arcing OUT of trade range instead of hugging the target.
 		if (this.disengageTicks > 0) {
@@ -852,13 +893,38 @@ public final class SoldierCombatGoal extends Goal {
 		if (this.comboCount >= 2 && !criticalReach) {
 			this.soldier.markCriticalAttack(1.20);
 		}
+		// A hit delivered with real approach momentum is a sprint hit.
+		Vec3 approachVelocity = this.soldier.getDeltaMovement();
+		Vec3 toTarget = target.position().subtract(this.soldier.position());
+		Vec3 horizontalToTarget = new Vec3(toTarget.x, 0.0, toTarget.z);
+		boolean runningHit = this.soldier.isSprinting()
+				|| approachVelocity.horizontalDistanceSqr() > 0.014
+						&& horizontalToTarget.lengthSqr() > 0.01
+						&& new Vec3(approachVelocity.x, 0.0, approachVelocity.z).normalize()
+								.dot(horizontalToTarget.normalize()) > 0.5;
+
 		this.soldier.swing(InteractionHand.MAIN_HAND);
 		ServerLevel level = getServerLevel(this.soldier);
 		boolean hit = this.soldier.doHurtTarget(level, target);
 		if (hit) {
 			this.comboCount = Math.min(4, this.comboCount + 1);
 			this.comboWindow = 40;
-			this.sprintBurstTicks = 6;
+			if (runningHit && target.isAlive()) {
+				// W-tap: sprint hits carry bonus knockback (mobs never get the
+				// player sprint-knockback bonus on their own)...
+				target.knockback(
+						0.42,
+						this.soldier.getX() - target.getX(),
+						this.soldier.getZ() - target.getZ()
+				);
+				this.soldier.recordComboChainHit();
+			}
+			// ...then the sprint state resets for one tick so the NEXT hit is a
+			// fresh sprint hit — the actual W-tap.
+			this.sprintBurstTicks = 0;
+			if (this.soldier.isSprinting()) {
+				this.soldier.setSprinting(false);
+			}
 		} else {
 			this.comboCount = 0;
 			this.comboWindow = 0;
@@ -869,22 +935,50 @@ public final class SoldierCombatGoal extends Goal {
 				blocksAttacks.disable(level, target, 3.0F, blockingItem);
 			}
 		}
-		int recovery = this.attackRecoveryTicks(role) - this.comboCount * 2;
 		boolean solo = SquadCoordinator.isSoloEngagement(this.soldier, target);
+		boolean targetNearlyDead =
+				target.getHealth() + target.getAbsorptionAmount() <= 7.0F;
+		boolean targetStuck = target.getInBlockState().is(Blocks.COBWEB);
+
+		// Combo continuation: ride the knockback and click again as the target's
+		// hurt window ends. Duelists and Brutes chain hardest; a near-dead
+		// target is always chased down.
+		float comboChance = switch (role) {
+			case DUELIST, BRUTE -> 0.80F;
+			case VANGUARD, TRAPPER, LANCER, ENDER_SKIRMISHER -> 0.60F;
+			default -> 0.45F;
+		};
+		if (solo) {
+			comboChance += 0.15F;
+		}
+		boolean continueCombo = hit
+				&& target.isAlive()
+				&& this.comboCount < 4
+				&& (targetNearlyDead || this.soldier.getRandom().nextFloat() < comboChance);
+		if (continueCombo) {
+			// Cadence matched to the 10-tick hurt invulnerability window.
+			this.attackCooldown = 11 + this.soldier.getRandom().nextInt(2);
+			this.comboChaseTicks = 26;
+			this.disengageTicks = 0;
+			SquadCoordinator.releaseMelee(this.soldier);
+			if (role == CombatRole.VANGUARD) {
+				this.soldier.equipSword();
+				this.shieldCooldown = Math.max(18, 50 - this.soldier.getGearLevel().id() * 4);
+			} else if (role == CombatRole.BRUTE) {
+				this.soldier.equipSword();
+			}
+			return;
+		}
+		this.comboChaseTicks = 0;
+
+		int recovery = this.attackRecoveryTicks(role) - this.comboCount * 2;
 		if (solo) {
 			recovery = (int) Math.ceil(recovery * 0.65);
 		}
 		// Human cadence jitter instead of a metronome.
 		this.attackCooldown = Math.max(7, recovery) + this.soldier.getRandom().nextInt(3) - 1;
-		// Hit-and-run: stay in only to continue a fresh combo; otherwise arc out
-		// for the recovery instead of standing in trade range.
-		boolean targetNearlyDead =
-				target.getHealth() + target.getAbsorptionAmount() <= 7.0F;
-		boolean stayForCombo = hit
-				&& (targetNearlyDead
-						|| this.comboCount < 2
-								&& this.soldier.getRandom().nextFloat() < (solo ? 0.70F : 0.40F));
-		boolean targetStuck = target.getInBlockState().is(Blocks.COBWEB);
+		// Hit-and-run: arc out for the recovery unless the kill is right there.
+		boolean stayForCombo = hit && targetNearlyDead;
 		if (!stayForCombo && !targetStuck) {
 			// Slightly longer than the cooldown: a visible reset pass, not a wobble.
 			this.disengageTicks = this.attackCooldown + 4 + this.soldier.getRandom().nextInt(6);

@@ -114,6 +114,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob, Pol
 	private int criticalHits;
 	private int reactiveShieldUses;
 	private int escapeBlocksPlaced;
+	private int comboChainHits;
 	private int consumableCooldown;
 	private int preparedConsumableSlot = NO_SLOT;
 	private int rangerTowerCooldown;
@@ -743,6 +744,14 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob, Pol
 
 	public int getHomingShotsFired() {
 		return this.homingShotsFired;
+	}
+
+	public void recordComboChainHit() {
+		this.comboChainHits++;
+	}
+
+	public int getComboChainHits() {
+		return this.comboChainHits;
 	}
 
 	public void recordEscapeBlock() {

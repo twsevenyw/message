@@ -96,6 +96,7 @@ public final class DebugTools {
 			context.getSource().sendSystemMessage(Component.literal(
 					"[debug] " + soldier.getName().getString() + " -> " + targetName
 							+ " | sprinting=" + soldier.isSprinting()
+							+ " | combo=" + soldier.getComboChainHits()
 							+ " | pos=" + soldier.blockPosition().toShortString()));
 		}
 		context.getSource().sendSystemMessage(
