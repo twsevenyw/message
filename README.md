@@ -24,7 +24,7 @@ Joining players need **nothing installed** — a completely vanilla launcher wor
 
 ## Download
 
-[Download Battle Soldiers 2.7.3](releases/battle-soldiers-2.7.3.jar?raw=1)
+[Download Battle Soldiers 2.7.4](releases/battle-soldiers-2.7.4.jar?raw=1)
 
 ## Quick start
 
@@ -124,7 +124,8 @@ Gear tiers improve equipment and tactical timing—not health. Every tier stays 
 - Every non-Trapper carries 3–5 finite webs and uses the same predictive trapping AI; dedicated Trappers retain larger unlimited reserves.
 - Every class continuously replenishes its critical role supplies: Ranger arrows/blocks, Trapper webs, Medic/Alchemist potions, Ender pearls, Engineer materials, Demolitionist TNT, and required role weapons.
 - Squads share target intelligence, threat rankings, frontline state, and learned player habits through a server-side blackboard.
-- Only a tier-scaled number of melee soldiers may wind up at once; excess soldiers rotate into stable replacement and flank positions instead of dogpiling.
+- Only a tier-scaled number of melee soldiers may wind up at once; excess soldiers rotate into stable replacement and flank positions instead of dogpiling. Attack slots free instantly when their holder dies, switches targets, or pauses to heal, so the attacker cap never fills with ghosts.
+- Melee commitment starts just outside strict reach (the windup steers inward like a player clicking into range), and soldiers never back off an enemy stuck in a cobweb.
 - Squads learn repeated shielding, strafing, ranged use, elevation, Maces, and crystals, then adjust prediction and counters.
 - Decision cadence, reaction time, shared-intel lifetime, pursuit lead, and attack-slot count scale by skill tier rather than health.
 - Consumables are selected by utility scores based on missing health, danger, effects, distance, and learned habits.
@@ -194,7 +195,7 @@ Soldier-placed cobblestone and planks are cleaned up automatically. Blocks delib
 The distributable mod is written to:
 
 ```text
-build/libs/battle-soldiers-2.7.3.jar
+build/libs/battle-soldiers-2.7.4.jar
 ```
 
 For local development:
