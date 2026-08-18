@@ -3,6 +3,7 @@ package dev.evanklein.battlesoldiers.entity.ai;
 import dev.evanklein.battlesoldiers.battle.CombatRole;
 import dev.evanklein.battlesoldiers.battle.SquadCoordinator;
 import dev.evanklein.battlesoldiers.entity.BattleSoldierEntity;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
@@ -23,6 +24,7 @@ import net.minecraft.world.item.TridentItem;
 import net.minecraft.world.item.component.BlocksAttacks;
 import net.minecraft.world.item.component.KineticWeapon;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
@@ -54,6 +56,7 @@ public final class SoldierCombatGoal extends Goal {
 	private int patienceTicks;
 	private int patienceCooldown;
 	private int sidestepCooldown;
+	private int webBreakTicks;
 	private boolean holdingFlank;
 	private CombatRole criticalRole = CombatRole.BRUTE;
 
@@ -157,6 +160,12 @@ public final class SoldierCombatGoal extends Goal {
 		if (this.tickCrystalResponse()) {
 			return;
 		}
+		if (this.tickWebEscape(target)) {
+			return;
+		}
+		if (this.tickWaterCombat(target)) {
+			return;
+		}
 		if (this.critJump) {
 			this.tickCriticalJump(target);
 			return;
@@ -181,6 +190,91 @@ public final class SoldierCombatGoal extends Goal {
 
 	@Override
 	public boolean requiresUpdateEveryTick() {
+		return true;
+	}
+
+	/**
+	 * Webbed soldiers behave like webbed players: keep swinging at anything in
+	 * reach while ripping the web out in under a second, instead of standing
+	 * paralyzed while their footwork AI strafes uselessly in place.
+	 */
+	private boolean tickWebEscape(LivingEntity target) {
+		BlockPos webPos = null;
+		BlockPos feet = this.soldier.blockPosition();
+		if (this.soldier.level().getBlockState(feet).is(Blocks.COBWEB)) {
+			webPos = feet;
+		} else {
+			BlockPos head = BlockPos.containing(this.soldier.getEyePosition());
+			if (this.soldier.level().getBlockState(head).is(Blocks.COBWEB)) {
+				webPos = head;
+			}
+		}
+		ServerLevel level = getServerLevel(this.soldier);
+		if (webPos == null) {
+			if (this.webBreakTicks > 0) {
+				level.destroyBlockProgress(this.soldier.getId(), this.soldier.blockPosition(), -1);
+				this.webBreakTicks = 0;
+			}
+			return false;
+		}
+
+		this.critJump = false;
+		this.disengageTicks = 0;
+		this.patienceTicks = 0;
+		this.soldier.getNavigation().stop();
+		// Fight through the web: anything in reach still gets hit on cadence.
+		if (this.attackCooldown <= 0 && this.soldier.isWithinMeleeAttackRange(target)) {
+			this.performMeleeAttack(target, this.soldier.getCombatRole());
+			this.disengageTicks = 0;
+		}
+		if (!level.getGameRules().get(GameRules.MOB_GRIEFING)) {
+			return true;
+		}
+		this.webBreakTicks++;
+		int required = Math.max(4, 11 - this.soldier.getGearLevel().id());
+		if (this.webBreakTicks % 3 == 0) {
+			this.soldier.swing(InteractionHand.MAIN_HAND);
+		}
+		level.destroyBlockProgress(
+				this.soldier.getId(),
+				webPos,
+				Math.min(9, this.webBreakTicks * 10 / required)
+		);
+		if (this.webBreakTicks >= required) {
+			level.destroyBlock(webPos, false, this.soldier);
+			level.destroyBlockProgress(this.soldier.getId(), webPos, -1);
+			this.webBreakTicks = 0;
+		}
+		return true;
+	}
+
+	/**
+	 * Water combat: footwork (disengage arcs, poke-waiting, sidesteps) is
+	 * worthless while swimming, so drop it entirely — hop-swim straight at the
+	 * target, keep swinging in reach, and let step-assist pop out of shallow
+	 * player-placed pools.
+	 */
+	private boolean tickWaterCombat(LivingEntity target) {
+		if (!this.soldier.isInWater()) {
+			return false;
+		}
+		this.critJump = false;
+		this.disengageTicks = 0;
+		this.patienceTicks = 0;
+		if (this.attackCooldown <= 0 && this.soldier.isWithinMeleeAttackRange(target)) {
+			this.performMeleeAttack(target, this.soldier.getCombatRole());
+			this.disengageTicks = 0;
+		}
+		Vec3 predicted = this.predictTargetPosition(target, 1.25, this.soldier.getCombatRole());
+		this.soldier.getMoveControl().setWantedPosition(predicted.x, predicted.y, predicted.z, 1.25);
+		// Walk/wade straight through shallow water (step assist handles exits);
+		// jump only to climb banks or reach a higher target — constant hopping
+		// just bounces in place.
+		if (this.hopCooldown <= 0
+				&& (this.soldier.horizontalCollision || target.getY() - this.soldier.getY() > 1.0)) {
+			this.soldier.getJumpControl().jump();
+			this.hopCooldown = 8;
+		}
 		return true;
 	}
 
@@ -279,10 +373,11 @@ public final class SoldierCombatGoal extends Goal {
 			return false;
 		}
 		if (this.patienceTicks <= 0) {
-			int base = soloEngagement ? 6 : 11;
+			int base = soloEngagement ? 4 : 11;
 			this.patienceTicks = Math.max(
 					3,
-					base + this.soldier.getRandom().nextInt(12) - this.soldier.getGearLevel().id()
+					base + this.soldier.getRandom().nextInt(soloEngagement ? 8 : 12)
+							- this.soldier.getGearLevel().id()
 			);
 		}
 		if (--this.patienceTicks <= 0) {
@@ -557,8 +652,10 @@ public final class SoldierCombatGoal extends Goal {
 		// recovery arcing OUT of trade range instead of hugging the target.
 		if (this.disengageTicks > 0) {
 			boolean chasedDown = this.attackCooldown <= 0 && targetDistance <= 6.25;
-			if (chasedDown) {
-				// They followed us out: turn and take the fight.
+			// If the target retreats instead, abort the arc and hunt — never
+			// hand a fleeing player free distance.
+			boolean targetFleeing = targetDistance > 30.25;
+			if (chasedDown || targetFleeing) {
 				this.disengageTicks = 0;
 			} else {
 				this.disengageTicks--;
@@ -781,9 +878,12 @@ public final class SoldierCombatGoal extends Goal {
 		this.attackCooldown = Math.max(7, recovery) + this.soldier.getRandom().nextInt(3) - 1;
 		// Hit-and-run: stay in only to continue a fresh combo; otherwise arc out
 		// for the recovery instead of standing in trade range.
+		boolean targetNearlyDead =
+				target.getHealth() + target.getAbsorptionAmount() <= 7.0F;
 		boolean stayForCombo = hit
-				&& this.comboCount < 2
-				&& this.soldier.getRandom().nextFloat() < (solo ? 0.60F : 0.40F);
+				&& (targetNearlyDead
+						|| this.comboCount < 2
+								&& this.soldier.getRandom().nextFloat() < (solo ? 0.70F : 0.40F));
 		boolean targetStuck = target.getInBlockState().is(Blocks.COBWEB);
 		if (!stayForCombo && !targetStuck) {
 			// Slightly longer than the cooldown: a visible reset pass, not a wobble.
