@@ -7,6 +7,7 @@ import dev.evanklein.battlesoldiers.battle.GearLevel;
 import dev.evanklein.battlesoldiers.battle.HomingArrowController;
 import dev.evanklein.battlesoldiers.battle.SoldierSquad;
 import dev.evanklein.battlesoldiers.battle.SquadCoordinator;
+import dev.evanklein.battlesoldiers.config.SoldierConfig;
 import dev.evanklein.battlesoldiers.entity.ai.BreachObstacleGoal;
 import dev.evanklein.battlesoldiers.entity.ai.AlchemistDebuffGoal;
 import dev.evanklein.battlesoldiers.entity.ai.AntiMaceCounterGoal;
@@ -91,6 +92,7 @@ import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.EnumSet;
+import java.util.OptionalInt;
 import java.util.function.Predicate;
 
 public class BattleSoldierEntity extends Monster implements RangedAttackMob {
@@ -206,6 +208,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	}
 
 	private void generateRandomLoadout() {
+		SoldierConfig config = SoldierConfig.get();
 		this.soldierInventory.clearContent();
 		this.setItemSlot(EquipmentSlot.MAINHAND, this.randomizedStack(this.primaryWeapon()));
 		this.equipRandomArmor(EquipmentSlot.HEAD);
@@ -216,19 +219,28 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 
 		if (this.isArcher()) {
 			this.addToInventory(this.randomizedStack(this.gearLevel.backupWeapon()));
-			this.addToInventory(new ItemStack(Items.ARROW, 14 + this.getRandom().nextInt(15)));
+			int arrows = config.supplyOr(
+					this.gearLevel,
+					SoldierConfig.SUPPLY_ARROWS,
+					14 + this.getRandom().nextInt(15)
+			);
+			if (arrows > 0) {
+				this.addToInventory(new ItemStack(Items.ARROW, arrows));
+			}
 			if (this.gearLevel.id() >= 4 && this.getRandom().nextFloat() < 0.22F) {
 				this.addToInventory(new ItemStack(Items.SPECTRAL_ARROW, 3 + this.getRandom().nextInt(5)));
 			}
 		}
 		if (this.combatRole == CombatRole.TRAPPER) {
-			int webs = switch (this.gearLevel) {
+			int webs = config.supplyOr(this.gearLevel, SoldierConfig.SUPPLY_COBWEBS, switch (this.gearLevel) {
 				case SIX -> 12;
 				case FIVE -> 8;
 				case FOUR -> 5;
 				default -> 0;
-			};
-			this.addToInventory(new ItemStack(Items.COBWEB, webs));
+			});
+			if (webs > 0) {
+				this.addToInventory(new ItemStack(Items.COBWEB, webs));
+			}
 			this.addToInventory(this.randomizedStack(this.gearLevel.axeWeapon()));
 		} else {
 			this.addToInventory(new ItemStack(Items.COBWEB, 3 + this.getRandom().nextInt(3)));
@@ -258,32 +270,60 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 			}
 		}
 
-		int blockCount = switch (this.combatRole) {
-			case RANGER -> 10 + this.gearLevel.id() * 2;
-			case TRAPPER -> 4 + this.gearLevel.id();
-			case ENGINEER -> 18 + this.gearLevel.id() * 3;
-			case DEMOLITIONIST -> 4 + this.gearLevel.id();
-			default -> 2 + this.gearLevel.id();
-		};
-		int cobblestone = Math.max(1, (int) Math.ceil(blockCount * 0.65));
-		this.addToInventory(new ItemStack(Items.COBBLESTONE, cobblestone));
-		this.addToInventory(new ItemStack(Items.OAK_PLANKS, Math.max(1, blockCount - cobblestone)));
+		int blockCount = config.supplyOr(
+				this.gearLevel,
+				SoldierConfig.SUPPLY_BUILDING_BLOCKS,
+				switch (this.combatRole) {
+					case RANGER -> 10 + this.gearLevel.id() * 2;
+					case TRAPPER -> 4 + this.gearLevel.id();
+					case ENGINEER -> 18 + this.gearLevel.id() * 3;
+					case DEMOLITIONIST -> 4 + this.gearLevel.id();
+					default -> 2 + this.gearLevel.id();
+				}
+		);
+		if (blockCount > 0) {
+			int cobblestone = Math.max(1, (int) Math.ceil(blockCount * 0.65));
+			this.addToInventory(new ItemStack(Items.COBBLESTONE, cobblestone));
+			if (blockCount - cobblestone > 0) {
+				this.addToInventory(new ItemStack(Items.OAK_PLANKS, blockCount - cobblestone));
+			}
+		}
 
-		int goldenApples = this.gearLevel == GearLevel.SIX
-				? 5 + this.getRandom().nextInt(3)
-				: 2 + this.getRandom().nextInt(2);
-		this.addToInventory(new ItemStack(Items.GOLDEN_APPLE, goldenApples));
-		if (this.gearLevel == GearLevel.SIX) {
-			this.addToInventory(new ItemStack(Items.ENCHANTED_GOLDEN_APPLE, 1 + this.getRandom().nextInt(2)));
+		int goldenApples = config.supplyOr(
+				this.gearLevel,
+				SoldierConfig.SUPPLY_GOLDEN_APPLES,
+				this.gearLevel == GearLevel.SIX
+						? 5 + this.getRandom().nextInt(3)
+						: 2 + this.getRandom().nextInt(2)
+		);
+		if (goldenApples > 0) {
+			this.addToInventory(new ItemStack(Items.GOLDEN_APPLE, goldenApples));
+		}
+		int enchantedGoldenApples = config.supplyOr(
+				this.gearLevel,
+				SoldierConfig.SUPPLY_ENCHANTED_GOLDEN_APPLES,
+				this.gearLevel == GearLevel.SIX ? 1 + this.getRandom().nextInt(2) : 0
+		);
+		if (enchantedGoldenApples > 0) {
+			this.addToInventory(new ItemStack(Items.ENCHANTED_GOLDEN_APPLE, enchantedGoldenApples));
 		}
 		this.addToInventory(new ItemStack(Items.COOKED_BEEF, 2 + this.getRandom().nextInt(3 + this.gearLevel.id())));
 
+		int shieldChance = config.supplyOr(
+				this.gearLevel,
+				SoldierConfig.SUPPLY_SHIELD_CHANCE,
+				Math.round(this.gearLevel.shieldChance() * 100.0F)
+		);
 		boolean carriesShield = this.combatRole == CombatRole.VANGUARD
-				&& this.getRandom().nextFloat() < this.gearLevel.shieldChance();
+				&& this.getRandom().nextInt(100) < shieldChance;
 		boolean carriesTotem = this.getRandom().nextFloat() < this.gearLevel.totemChance();
-		int totemCount = this.gearLevel == GearLevel.SIX
-				? 2 + this.getRandom().nextInt(2)
-				: carriesTotem ? 1 : 0;
+		int totemCount = config.supplyOr(
+				this.gearLevel,
+				SoldierConfig.SUPPLY_TOTEMS,
+				this.gearLevel == GearLevel.SIX
+						? 2 + this.getRandom().nextInt(2)
+						: carriesTotem ? 1 : 0
+		);
 		if (carriesShield) {
 			this.setItemSlot(EquipmentSlot.OFFHAND, this.randomizedStack(Items.SHIELD));
 			for (int index = 0; index < totemCount; index++) {
@@ -298,6 +338,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 		this.addRandomPotions();
 		this.applyTierSixEnchantments();
 		this.enchantRangerBows();
+		this.applyGearOverrides();
 
 		this.configureGuaranteedDrops();
 		this.setCanPickUpLoot(true);
@@ -345,11 +386,76 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	}
 
 	private void addRandomPotions() {
-		if (this.getRandom().nextFloat() >= this.gearLevel.potionChance()) {
+		int potionChance = SoldierConfig.get().supplyOr(
+				this.gearLevel,
+				SoldierConfig.SUPPLY_POTION_CHANCE,
+				Math.round(this.gearLevel.potionChance() * 100.0F)
+		);
+		if (this.getRandom().nextInt(100) >= potionChance) {
 			return;
 		}
 
 		this.addToInventory(this.createRandomPotion());
+	}
+
+	/**
+	 * Applies configured tier gear overrides after procedural generation so the
+	 * exact configured item (material, enchants, components) wins everywhere it
+	 * appears: equipment slots and inventory copies alike.
+	 */
+	private void applyGearOverrides() {
+		SoldierConfig config = SoldierConfig.get();
+		for (EquipmentSlot slot : new EquipmentSlot[] {
+				EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET
+		}) {
+			ItemStack override = config.gearOverrideCopy(this.gearLevel, SoldierConfig.armorKey(slot));
+			if (!override.isEmpty()) {
+				this.setItemSlot(slot, override);
+			}
+		}
+		this.replaceGearCategory(config, SoldierConfig.KEY_SWORD,
+				stack -> stack.is(this.gearLevel.meleeWeapon()));
+		this.replaceGearCategory(config, SoldierConfig.KEY_AXE,
+				stack -> stack.is(this.gearLevel.axeWeapon()));
+		this.replaceGearCategory(config, SoldierConfig.KEY_BOW, stack -> stack.is(Items.BOW));
+		this.replaceGearCategory(config, SoldierConfig.KEY_SHIELD, stack -> stack.is(Items.SHIELD));
+		this.replaceGearCategory(config, SoldierConfig.KEY_SPEAR,
+				stack -> stack.is(this.gearLevel.spearWeapon()));
+	}
+
+	private void replaceGearCategory(SoldierConfig config, String key, Predicate<ItemStack> matches) {
+		ItemStack override = config.gearOverrideCopy(this.gearLevel, key);
+		if (override.isEmpty()) {
+			return;
+		}
+		for (EquipmentSlot slot : new EquipmentSlot[] {EquipmentSlot.MAINHAND, EquipmentSlot.OFFHAND}) {
+			if (matches.test(this.getItemBySlot(slot))) {
+				this.setItemSlot(slot, override.copy());
+			}
+		}
+		for (int slot = 0; slot < this.soldierInventory.getContainerSize(); slot++) {
+			if (matches.test(this.soldierInventory.getItem(slot))) {
+				this.soldierInventory.setItem(slot, override.copy());
+			}
+		}
+	}
+
+	/** The item this soldier should treat as its tier weapon for the category, honoring overrides. */
+	private Item expectedGearItem(String key, Item fallback) {
+		ItemStack override = SoldierConfig.get().gearOverrideCopy(this.gearLevel, key);
+		return override.isEmpty() ? fallback : override.getItem();
+	}
+
+	public Item swordItem() {
+		return this.expectedGearItem(SoldierConfig.KEY_SWORD, this.gearLevel.meleeWeapon());
+	}
+
+	public Item axeItem() {
+		return this.expectedGearItem(SoldierConfig.KEY_AXE, this.gearLevel.axeWeapon());
+	}
+
+	public Item spearItem() {
+		return this.expectedGearItem(SoldierConfig.KEY_SPEAR, this.gearLevel.spearWeapon());
 	}
 
 	private ItemStack createRandomPotion() {
@@ -386,6 +492,10 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 
 	private void enchantRangerBows() {
 		if (this.combatRole != CombatRole.RANGER || !(this.level() instanceof ServerLevel level)) {
+			return;
+		}
+		if (SoldierConfig.get().gearOverride(this.gearLevel, SoldierConfig.KEY_BOW).isPresent()) {
+			// A configured bow override is authoritative, including its enchantments.
 			return;
 		}
 		HolderLookup.RegistryLookup<Enchantment> enchantments =
@@ -794,14 +904,16 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	}
 
 	public void equipSword() {
-		if (!this.getMainHandItem().is(this.gearLevel.meleeWeapon())) {
-			this.switchMainHandFromInventory(stack -> stack.is(this.gearLevel.meleeWeapon()));
+		Item sword = this.swordItem();
+		if (!this.getMainHandItem().is(sword)) {
+			this.switchMainHandFromInventory(stack -> stack.is(sword));
 		}
 	}
 
 	public void equipAxe() {
-		if (!this.getMainHandItem().is(this.gearLevel.axeWeapon())) {
-			this.switchMainHandFromInventory(stack -> stack.is(this.gearLevel.axeWeapon()));
+		Item axe = this.axeItem();
+		if (!this.getMainHandItem().is(axe)) {
+			this.switchMainHandFromInventory(stack -> stack.is(axe));
 		}
 	}
 
@@ -818,8 +930,9 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	}
 
 	public void equipSpear() {
-		if (!this.getMainHandItem().is(this.gearLevel.spearWeapon())) {
-			this.switchMainHandFromInventory(stack -> stack.is(this.gearLevel.spearWeapon()));
+		Item spear = this.spearItem();
+		if (!this.getMainHandItem().is(spear)) {
+			this.switchMainHandFromInventory(stack -> stack.is(spear));
 		}
 	}
 
@@ -1008,7 +1121,7 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	}
 
 	public boolean isHoldingAxe() {
-		return this.getMainHandItem().is(this.gearLevel.axeWeapon());
+		return this.getMainHandItem().is(this.axeItem());
 	}
 
 	public void markCriticalAttack(double multiplier) {
@@ -1515,21 +1628,24 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 	}
 
 	private void maintainCriticalClassSupplies() {
+		SoldierConfig config = SoldierConfig.get();
 		switch (this.combatRole) {
 			case RANGER -> {
-				this.ensureRoleWeapon(Items.BOW);
+				this.ensureRoleWeapon(SoldierConfig.KEY_BOW, Items.BOW);
 				this.enchantRangerBows();
-				this.ensureInventoryCount(Items.ARROW, 32);
-				this.ensureInventoryCount(Items.COBBLESTONE, 16);
-				this.ensureInventoryCount(Items.OAK_PLANKS, 8);
+				this.ensureInventoryCount(
+						Items.ARROW,
+						config.supplyOr(this.gearLevel, SoldierConfig.SUPPLY_ARROWS, 32)
+				);
+				this.ensureBuildingBlocks(config, 16, 8);
 			}
 			case TRAPPER -> {
-				int webs = switch (this.gearLevel) {
+				int webs = config.supplyOr(this.gearLevel, SoldierConfig.SUPPLY_COBWEBS, switch (this.gearLevel) {
 					case ONE, TWO, THREE -> 4;
 					case FOUR -> 6;
 					case FIVE -> 10;
 					case SIX -> 14;
-				};
+				});
 				this.ensureInventoryCount(Items.COBWEB, webs);
 			}
 			case MEDIC -> {
@@ -1538,12 +1654,11 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 				this.ensurePotionCount(Items.POTION, Potions.REGENERATION, 1);
 			}
 			case ENGINEER -> {
-				this.ensureInventoryCount(Items.COBBLESTONE, 24);
-				this.ensureInventoryCount(Items.OAK_PLANKS, 12);
+				this.ensureBuildingBlocks(config, 24, 12);
 				this.ensureInventoryCount(Items.LADDER, 16);
 			}
-			case LANCER -> this.ensureRoleWeapon(this.gearLevel.spearWeapon());
-			case DUELIST -> this.ensureRoleWeapon(this.gearLevel.meleeWeapon());
+			case LANCER -> this.ensureRoleWeapon(SoldierConfig.KEY_SPEAR, this.gearLevel.spearWeapon());
+			case DUELIST -> this.ensureRoleWeapon(SoldierConfig.KEY_SWORD, this.gearLevel.meleeWeapon());
 			case ALCHEMIST -> {
 				this.ensurePotionCount(Items.SPLASH_POTION, Potions.POISON, 2);
 				this.ensurePotionCount(Items.SPLASH_POTION, Potions.WEAKNESS, 2);
@@ -1552,28 +1667,48 @@ public class BattleSoldierEntity extends Monster implements RangedAttackMob {
 			case ENDER_SKIRMISHER -> this.ensureInventoryCount(Items.ENDER_PEARL, 5);
 			case DEMOLITIONIST -> {
 				this.ensureInventoryCount(Items.TNT, 5);
-				this.ensureRoleWeapon(this.gearLevel.axeWeapon());
-				this.ensureRoleWeapon(this.gearLevel.meleeWeapon());
+				this.ensureRoleWeapon(SoldierConfig.KEY_AXE, this.gearLevel.axeWeapon());
+				this.ensureRoleWeapon(SoldierConfig.KEY_SWORD, this.gearLevel.meleeWeapon());
 			}
 			case VANGUARD -> {
-				this.ensureRoleWeapon(this.gearLevel.meleeWeapon());
-				this.ensureRoleWeapon(this.gearLevel.axeWeapon());
-				this.ensureRoleWeapon(Items.SHIELD);
+				this.ensureRoleWeapon(SoldierConfig.KEY_SWORD, this.gearLevel.meleeWeapon());
+				this.ensureRoleWeapon(SoldierConfig.KEY_AXE, this.gearLevel.axeWeapon());
+				this.ensureRoleWeapon(SoldierConfig.KEY_SHIELD, Items.SHIELD);
 			}
 			case BRUTE -> {
-				this.ensureRoleWeapon(this.gearLevel.meleeWeapon());
-				this.ensureRoleWeapon(this.gearLevel.axeWeapon());
+				this.ensureRoleWeapon(SoldierConfig.KEY_SWORD, this.gearLevel.meleeWeapon());
+				this.ensureRoleWeapon(SoldierConfig.KEY_AXE, this.gearLevel.axeWeapon());
 			}
 		}
 	}
 
-	private void ensureRoleWeapon(Item item) {
-		if (this.getMainHandItem().is(item)
-				|| this.getOffhandItem().is(item)
-				|| this.hasInventoryItem(item)) {
+	private void ensureBuildingBlocks(SoldierConfig config, int defaultCobblestone, int defaultPlanks) {
+		OptionalInt blocks = config.supplyOverride(this.gearLevel, SoldierConfig.SUPPLY_BUILDING_BLOCKS);
+		int cobblestone = blocks.isPresent()
+				? (int) Math.ceil(blocks.getAsInt() * 0.65)
+				: defaultCobblestone;
+		int planks = blocks.isPresent() ? blocks.getAsInt() - cobblestone : defaultPlanks;
+		if (cobblestone > 0) {
+			this.ensureInventoryCount(Items.COBBLESTONE, cobblestone);
+		}
+		if (planks > 0) {
+			this.ensureInventoryCount(Items.OAK_PLANKS, planks);
+		}
+	}
+
+	private void ensureRoleWeapon(String gearKey, Item fallback) {
+		ItemStack override = SoldierConfig.get().gearOverrideCopy(this.gearLevel, gearKey);
+		Item expected = override.isEmpty() ? fallback : override.getItem();
+		if (this.getMainHandItem().is(expected)
+				|| this.getOffhandItem().is(expected)
+				|| this.hasInventoryItem(expected)) {
 			return;
 		}
-		ItemStack stack = this.randomizedStack(item);
+		if (!override.isEmpty()) {
+			this.addToInventory(override);
+			return;
+		}
+		ItemStack stack = this.randomizedStack(fallback);
 		if (this.gearLevel == GearLevel.SIX && this.level() instanceof ServerLevel level) {
 			this.enchantTierSixStack(
 					stack,

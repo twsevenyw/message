@@ -1,5 +1,6 @@
 package dev.evanklein.battlesoldiers.battle;
 
+import dev.evanklein.battlesoldiers.config.SoldierConfig;
 import dev.evanklein.battlesoldiers.entity.BattleSoldierEntity;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -45,58 +46,60 @@ public final class SquadCoordinator {
 	public static CombatRole chooseRole(BattleSoldierEntity soldier, GearLevel gear) {
 		SquadBoard board = squadBoard(soldier);
 		cleanupBoard(board, soldier.level().getGameTime());
+		SoldierConfig config = SoldierConfig.get();
 		int total = board.soldiers.size();
 		if (total < 3) {
-			float duelRoll = soldier.getRandom().nextFloat();
-			if (duelRoll < 0.52F) {
-				return CombatRole.VANGUARD;
-			}
-			if (duelRoll < 0.88F) {
-				return CombatRole.BRUTE;
-			}
-			return CombatRole.DUELIST;
+			// Tiny squads stay restricted to self-sufficient frontline duel roles.
+			return weightedPick(
+					soldier,
+					config,
+					List.of(CombatRole.VANGUARD, CombatRole.BRUTE, CombatRole.DUELIST)
+			);
 		}
 		int rareCount = (int) board.soldiers.values().stream().filter(Presence::specialist).count();
-		float rareChance = switch (gear) {
-			case ONE -> 0.01F;
-			case TWO -> 0.04F;
-			case THREE -> 0.08F;
-			case FOUR -> 0.12F;
-			case FIVE -> 0.16F;
-			case SIX -> 0.20F;
-		};
 		int rareCap = Math.max(1, (int) Math.floor((total + 1) * 0.20));
-		if (rareCount < rareCap && soldier.getRandom().nextFloat() < rareChance) {
-			List<CombatRole> eligible = new ArrayList<>();
-			eligible.add(CombatRole.DUELIST);
-			if (gear.id() >= 2) {
-				eligible.add(CombatRole.LANCER);
+		boolean specialistsAllowed = rareCount < rareCap;
+		List<CombatRole> eligible = new ArrayList<>();
+		for (CombatRole role : CombatRole.values()) {
+			if (role.isSpecialist() && !specialistsAllowed) {
+				continue;
 			}
-			if (gear.id() >= 3) {
-				eligible.add(CombatRole.MEDIC);
-				eligible.add(CombatRole.ENGINEER);
+			if (isRoleEligible(role, gear)) {
+				eligible.add(role);
 			}
-			if (gear.id() >= 4) {
-				eligible.add(CombatRole.ALCHEMIST);
-				eligible.add(CombatRole.ENDER_SKIRMISHER);
-				eligible.add(CombatRole.DEMOLITIONIST);
-			}
-			eligible.sort((left, right) -> Integer.compare(roleCount(board, left), roleCount(board, right)));
-			int choiceBand = Math.min(3, eligible.size());
-			return eligible.get(soldier.getRandom().nextInt(choiceBand));
 		}
+		return weightedPick(soldier, config, eligible);
+	}
 
-		float roll = soldier.getRandom().nextFloat();
-		if (roll < 0.40F) {
+	public static boolean isRoleEligible(CombatRole role, GearLevel gear) {
+		return switch (role) {
+			case TRAPPER, ALCHEMIST, ENDER_SKIRMISHER, DEMOLITIONIST -> gear.id() >= 4;
+			case LANCER -> gear.id() >= 2;
+			case MEDIC, ENGINEER -> gear.id() >= 3;
+			default -> true;
+		};
+	}
+
+	private static CombatRole weightedPick(
+			BattleSoldierEntity soldier,
+			SoldierConfig config,
+			List<CombatRole> eligible
+	) {
+		double totalWeight = 0.0;
+		for (CombatRole role : eligible) {
+			totalWeight += Math.max(0.0, config.weight(role));
+		}
+		if (eligible.isEmpty() || totalWeight <= 0.0) {
 			return CombatRole.VANGUARD;
 		}
-		if (roll < 0.68F) {
-			return CombatRole.BRUTE;
+		double roll = soldier.getRandom().nextDouble() * totalWeight;
+		for (CombatRole role : eligible) {
+			roll -= Math.max(0.0, config.weight(role));
+			if (roll < 0.0) {
+				return role;
+			}
 		}
-		if (roll < 0.86F) {
-			return CombatRole.RANGER;
-		}
-		return gear.id() >= 4 ? CombatRole.TRAPPER : CombatRole.VANGUARD;
+		return eligible.get(eligible.size() - 1);
 	}
 
 	public static void heartbeat(BattleSoldierEntity soldier) {
@@ -404,10 +407,6 @@ public final class SquadCoordinator {
 			score += 18.0 * Integer.bitCount(combo.mask);
 		}
 		return score;
-	}
-
-	private static int roleCount(SquadBoard board, CombatRole role) {
-		return (int) board.soldiers.values().stream().filter(presence -> presence.role() == role).count();
 	}
 
 	private static Vec3 squadCentroid(SquadBoard board) {

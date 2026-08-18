@@ -4,10 +4,14 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import dev.evanklein.battlesoldiers.battle.BattleTeams;
+import dev.evanklein.battlesoldiers.battle.ClassInfo;
+import dev.evanklein.battlesoldiers.battle.CombatRole;
 import dev.evanklein.battlesoldiers.battle.GearLevel;
 import dev.evanklein.battlesoldiers.battle.SoldierSquad;
+import dev.evanklein.battlesoldiers.debug.DebugTools;
 import dev.evanklein.battlesoldiers.entity.BattleSoldierEntity;
 import dev.evanklein.battlesoldiers.entity.ModEntities;
+import dev.evanklein.battlesoldiers.gui.SoldierMenus;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -33,8 +37,8 @@ public final class SoldierCommands {
 	}
 
 	public static void register() {
-		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
-				dispatcher.register(
+		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+				LiteralArgumentBuilder<CommandSourceStack> root =
 						Commands.literal("soldiers")
 								.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 								.then(Commands.argument("count", IntegerArgumentType.integer(1, MAX_SINGLE_SPAWN))
@@ -64,8 +68,40 @@ public final class SoldierCommands {
 										.then(clearCommand("red", SoldierSquad.RED))
 										.then(clearCommand("blue", SoldierSquad.BLUE)))
 								.then(Commands.literal("status").executes(SoldierCommands::status))
-				)
-		);
+								.then(Commands.literal("menu").executes(SoldierCommands::openMenu))
+								.then(Commands.literal("config").executes(SoldierCommands::openMenu))
+								.then(infoCommand());
+				if (DebugTools.enabled()) {
+					root.then(DebugTools.commandTree());
+				}
+				dispatcher.register(root);
+		});
+	}
+
+	private static LiteralArgumentBuilder<CommandSourceStack> infoCommand() {
+		LiteralArgumentBuilder<CommandSourceStack> info = Commands.literal("info")
+				.executes(context -> {
+					for (Component line : ClassInfo.overviewLines()) {
+						context.getSource().sendSystemMessage(line);
+					}
+					return 1;
+				});
+		for (CombatRole role : CombatRole.values()) {
+			info.then(Commands.literal(role.id()).executes(context -> {
+				for (Component line : ClassInfo.detailLines(role)) {
+					context.getSource().sendSystemMessage(line);
+				}
+				return 1;
+			}));
+		}
+		return info;
+	}
+
+	private static int openMenu(CommandContext<CommandSourceStack> context)
+			throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+		ServerPlayer player = context.getSource().getPlayerOrException();
+		SoldierMenus.openMain(player);
+		return 1;
 	}
 
 	private static LiteralArgumentBuilder<CommandSourceStack> teamSpawnCommand(SoldierSquad squad) {
