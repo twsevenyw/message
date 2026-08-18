@@ -40,7 +40,8 @@
 | `releases/battle-soldiers-2.5.1.jar` | Previous armor-durability release |
 | `releases/battle-soldiers-2.6.0.jar` | Previous config-GUI release |
 | `releases/battle-soldiers-2.7.0.jar` | Previous server-side/vanilla-client release |
-| `releases/battle-soldiers-2.7.1.jar` | Current class-spawn GitHub-hosted release |
+| `releases/battle-soldiers-2.7.1.jar` | Previous class-spawn release |
+| `releases/battle-soldiers-2.7.2.jar` | Current multiplayer-targeting GitHub-hosted release |
 
 ## Current State
 - Complete implementation is on `cursor/battle-soldiers-mod-1918`; draft PR #1 targets `main`.
@@ -66,6 +67,7 @@
 - Rare specialists have distinct role colors.
 - Commander, personality variants, and Crystalist are intentionally excluded.
 - A server-scoped squad blackboard shares ranked targets, frontline state, habits, reservations, and tier skill profiles.
+- Shared-target adoption is idle-only as of 2.7.2: soldiers with a live, attackable target are never overridden (retaliation sticks), and idle soldiers prefer a valid enemy player under 2/3 the shared target's distance; squads therefore split correctly across multiple players.
 - Simultaneous melee attackers are capped; excess soldiers receive stable flank/replacement positions.
 - Squads learn shielding, ranged use, strafing, Maces, crystals, and elevation; utility and prediction adapt to those habits.
 - Consumables use utility scoring, terrain uses scored bridge/cover/stair plans, and non-shield units directionally dodge converging projectiles.
@@ -94,7 +96,7 @@
 - Rangers persist one owned perch per engagement and never path, strafe, heal-retreat, build, breach, or wander off it.
 - Unsupported ground Rangers detect the loss of frontline allies and advance/fight instead of retreating indefinitely.
 - Soldiers never drop XP orbs.
-- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.7.1.jar`.
+- `./gradlew clean build --warning-mode all` passes without warnings; output is `build/libs/battle-soldiers-2.7.2.jar`.
 - A downloadable copy is staged at `/opt/cursor/artifacts/battle-soldiers-1.0.0.jar` (SHA-256 `344011d03587c796d13c037b1112eae672c0d950bcb42c1ff0d7107b635e43e1`).
 - Version 2.0.0 is also staged at `/opt/cursor/artifacts/battle-soldiers-2.0.0.jar` for direct chat delivery because the user's FortiGate policy blocks `raw.githubusercontent.com`.
 - Version 1.1.0 is committed at `releases/battle-soldiers-1.1.0.jar` with SHA-256 `627ebf2259d9be25a4a844b36646a9a43b1997065cb2b4b4ed1b154a1c80f6ab`.
@@ -114,6 +116,8 @@
 - Version 2.7.0 is committed at `releases/battle-soldiers-2.7.0.jar` with SHA-256 `591ef873b84b35c2ef09c2d93648125a90733d7192a94b43b7cfd8e482c6a22e` and staged at `/opt/cursor/artifacts/battle-soldiers-2.7.0.jar`.
 - Version 2.7.1 is committed at `releases/battle-soldiers-2.7.1.jar` with SHA-256 `688464c4610068572d377f5e1a023e4f6bafccb1db3ad9604f4751ba1820f84b` and staged at `/opt/cursor/artifacts/battle-soldiers-2.7.1.jar`.
 - 2.7.1 dedicated-server checks passed: `soldiers 1 6 duelist`, tier-1 forced Trappers, `team red 2 4 ranger`, `battle 3 5 5 brute duelist` (correct per-team roles and labels), and unlabeled random spawns; NBT confirmed forced CombatRole values with zero log errors.
+- Version 2.7.2 is committed at `releases/battle-soldiers-2.7.2.jar` with SHA-256 `7ab5a935b84ce350faedf16a4409f4bbd892e0a5a3563b54e97e641e19d63166` and staged at `/opt/cursor/artifacts/battle-soldiers-2.7.2.jar`.
+- 2.7.2 two-player reproduction passed: a squad locked on an unkillable fake player split to attack a vanilla-protocol client the moment it swung at them (3/4 switched, victim still alive), fresh spawns beside the second player targeted it over the distant shared target, single-target rally still works, and the log stayed error-free.
 - 2.7.0 checks passed with a real vanilla-protocol client (node minecraft-protocol, offline auth): joined through Fabric+Polymer configuration (answering the config-phase ping like a real vanilla client), reached PLAY with no registry-sync kick, received soldiers as `minecraft:zombie` spawns, was killed by "Training Vanguard • Gear 3", and stayed connected through a 5v5 battle; fake-player GUI regression and pre-Polymer world persistence also passed with zero log errors.
 - 2.6.0 dedicated-server checks passed: GUI click persistence, deterministic 27/30-Ranger weight test, tier-3 diamond-sword Sharpness V + Fire Aspect II override applied in-game and after restart, enchant toggle-off, override removal, golden-apple supply override, live inventory inspector, 6v6 battle regression, and debug-tree absence in release mode.
 - Dedicated-server checks passed for 12.5% specialist composition in a 64-soldier sample, all seven specialists, Medic consumption, Engineer fortifications, Alchemist debuffs, Lancer spears, Demolitionist TNT, squad coordination, and prior combat systems.
@@ -168,6 +172,7 @@
 | 2026-08-18 | Replace all translatable command feedback with literal text. | Vanilla clients lack the mod's lang file and would render raw translation keys. |
 | 2026-08-18 | Verify the vanilla-join path with a real protocol client (node minecraft-protocol 1.21.11). | Reaching PLAY state, seeing zombie-disguised soldiers, and being killed by one is the only conclusive proof of vanilla-client compatibility. |
 | 2026-08-18 | Let class-forced spawns bypass gear gating, weights, tiny-squad rules, and specialist caps. | An explicit `/soldiers 1 6 duelist` request is a sandbox tool; silently substituting a different class would be wrong. |
+| 2026-08-18 | Make shared-target adoption idle-only with a nearest-player preference. | The 4-tick forced sync locked whole squads onto one player and overrode retaliation, so a second player was ignored until the first died. |
 
 ## Agent Activity Log
 | Date | Agent | What Changed |
@@ -194,3 +199,4 @@
 | 2026-08-18 | Claude Fable 5 | Added 2.6.0 config-driven spawn weights (Ranger 7.5%), `/soldiers info`, the full chest-GUI config suite (weights, tier loadouts, PvP-Legacy enchant books, supply editors, live soldier inspector), JSON persistence, a debug click harness, end-to-end runtime GUI tests, and a rebuilt artifact. |
 | 2026-08-18 | Claude Fable 5 | Added 2.7.0 full server-side support: bundled Polymer, zombie wire-disguise, literal command feedback, vanilla-protocol join/combat/GUI verification, docs, and a rebuilt artifact. |
 | 2026-08-18 | Claude Fable 5 | Added 2.7.1 optional class arguments for spawn/team/battle commands with runtime verification and a rebuilt artifact. |
+| 2026-08-18 | Claude Fable 5 | Fixed 2.7.2 multiplayer tunnel vision: idle-only shared-target adoption, sticky retaliation, nearest-player preference, verified with a two-player (fake + vanilla-protocol) reproduction, and a rebuilt artifact. |

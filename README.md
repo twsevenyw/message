@@ -24,7 +24,7 @@ Joining players need **nothing installed** — a completely vanilla launcher wor
 
 ## Download
 
-[Download Battle Soldiers 2.7.1](releases/battle-soldiers-2.7.1.jar?raw=1)
+[Download Battle Soldiers 2.7.2](releases/battle-soldiers-2.7.2.jar?raw=1)
 
 ## Quick start
 
@@ -137,7 +137,8 @@ Gear tiers improve equipment and tactical timing—not health. Every tier stays 
 - Wall-pinned soldiers jump-strafe laterally instead of waiting on navigation or attack recovery.
 - Vanguards and Duelists feint habitual blockers; damage prediction chooses totems, healing, or emergency disengagement before lethal hits.
 - Post-hit sprint resets, predictive windup tracking, pearls, and class-specific crit lunges create sustained individual pressure.
-- Squads adopt one hysteresis-stable focus target and increase pressure after web/debuff/explosive combo stages.
+- Squad focus fire is advisory: soldiers already fighting a live target keep it, retaliation against whoever hits them sticks, and idle soldiers rally to the squad target only when no other enemy player is clearly closer — so squads split naturally across multiple players instead of tunneling one until it dies.
+- Squads increase pressure after web/debuff/explosive combo stages.
 - Low-health attackers rotate out of reserved frontline slots while replacements immediately advance.
 - Soldiers share arrows, blocks, gaps, and pearls with the rare role that needs them.
 - Engineers and Trappers may block a predicted escape cell only after four allies cover three quadrants, the target is grounded and moving, and the cell passes ally/collision safety checks.
@@ -188,7 +189,7 @@ Soldier-placed cobblestone and planks are cleaned up automatically. Blocks delib
 The distributable mod is written to:
 
 ```text
-build/libs/battle-soldiers-2.7.1.jar
+build/libs/battle-soldiers-2.7.2.jar
 ```
 
 For local development:
